@@ -1,0 +1,55 @@
+---
+output:
+  bookdown::pdf_document2:
+    includes:
+      in_header: latex/preamble.tex
+      before_body: latex/titlepage.tex
+    pandoc_args:
+    - --csl
+    - references/apa.csl
+  bookdown::html_document2:
+    pandoc_args:
+    - --csl
+    - references/apa.csl
+  bookdown::word_document2:
+    pandoc_args:
+    - --csl
+    - references/apa.csl
+toc-title: Table of Contents
+bibliography: references/references.bib
+link-citations: yes
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \renewcommand{\headrulewidth}{0pt}
+- \fancyfoot[C]{}
+- \fancyfoot[R]{\thepage}
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, messages = FALSE)
+packages <- c("bookdown", "dplyr", "ggplot2")
+package.check <- lapply(packages, FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+        install.packages(x, dependencies = TRUE)
+        library(x, character.only = TRUE)
+    }
+})
+```
+\fancyhead[LR]{}
+\pagenumbering{roman}
+
+\newpage
+\cleardoublepage
+\pagenumbering{arabic}
+\fancyhead[L]{Example Model}
+\fancyhead[R]{Machine Learning I}
+# Introduction
+
+Example APA7 the reference [@datafiniti2018].
+
+# Methodology
+
+# Conclusion
+
+\newpage
+# References

@@ -37,3 +37,10 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+# dot files
+.DS_Store
+
+# Report
+analysis.pdf
+analysis.html

@@ -1,0 +1,90 @@
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{multicol}
+\usepackage{hyperref}
+\usepackage{mathrsfs}
+\usepackage{amsmath,amscd}
+\usepackage[all,cmtip]{xy}
+\usepackage{bbm}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\newcommand*{\titleGM}{\begingroup
+\hbox{
+\hspace*{0.2\textwidth}
+\rule{1pt}{\textheight}
+\hspace*{0.05\textwidth}
+\parbox[b]{0.75\textwidth}{
+
+{\noindent\LARGE\bfseries Machine Learning I: Group Work \\}\\[2\baselineskip]
+{\large \textbf{Authors:} Levin Reichmuth, Jorit Studer and Taejun Moon } \\[0.5\baselineskip]
+{\large \textbf{Module:} Machine Learning I } \\[4\baselineskip]
+{\large Submitted on June 10th, 2022 } \\[1\baselineskip]
+{\large \textsc{ Supervisor: Dr. Matteo Tanadini, Daniel Meister and Dr. Alberto Paganini }}
+
+\vspace{0.5\textheight}
+{\noindent Lucerne University of Applied Sciences and Arts }\\[\baselineskip]
+}}
+\endgroup}
+
+\pagestyle{empty}
+\makeatletter
+\renewcommand{\maketitle}
+{ \begingroup \vskip 10pt \begin{center} \Huge {\bf \@title}
+\vskip 10pt \large \@author \hskip 20pt \@date \end{center}
+\vskip 10pt \endgroup \setcounter{footnote}{0} }
+\makeatother
+\renewcommand{\labelenumi}{(\alph{enumi})}
+
+\let\vaccent=\v
+\renewcommand{\v}[1]{\ensuremath{\mathbf{#1}}}
+\newcommand{\gv}[1]{\ensuremath{\mbox{\boldmath$ #1 $}}}
+
+\newcommand{\uv}[1]{\ensuremath{\mathbf{\hat{#1}}}}
+\newcommand{\abs}[1]{\left| #1 \right|}
+\newcommand{\avg}[1]{\left< #1 \right>}
+\let\underdot=\d
+\renewcommand{\d}[2]{\frac{d #1}{d #2}}
+\newcommand{\dd}[2]{\frac{d^2 #1}{d #2^2}}
+\newcommand{\pd}[2]{\frac{\partial #1}{\partial #2}}
+
+\newcommand{\pdd}[2]{\frac{\partial^2 #1}{\partial #2^2}}
+
+\let\baraccent=\=
+\renewcommand{\=}[1]{\stackrel{#1}{=}}
+\providecommand{\wave}[1]{\v{\tilde{#1}}}
+\providecommand{\fr}{\frac}
+\providecommand{\RR}{\mathbb{R}}
+\providecommand{\CC}{\mathbb{C}}
+\providecommand{\NN}{\mathbb{N}}
+\providecommand{\e}{\epsilon}
+\newcount\colveccount
+\newcommand*\colvec[1]{
+\global\colveccount#1
+\begin{pmatrix}
+\colvecnext
+}
+\def\colvecnext#1{
+#1
+\global\advance\colveccount-1
+\ifnum\colveccount>0
+\\
+\expandafter\colvecnext
+\else
+\end{pmatrix}
+\fi
+}
+\newtheorem{prop}{Proposition}
+\newtheorem{thm}{Theorem}[section]
+\newtheorem{problem}{Problem}[section]
+\usepackage{cancel}
+\newtheorem*{lem}{Lemma}
+\theoremstyle{definition}
+\newtheorem*{dfn}{Definition}
+\theoremstyle{remark}
+\newtheorem*{rmk}{Remark}
+\newenvironment{solution}{
+\begin{trivlist} \item \textit{Solution}. }{
+\hspace*{\fill} $\blacksquare$\end{trivlist}}
+\pagestyle{myheadings}
