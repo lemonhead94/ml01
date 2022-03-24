@@ -47,6 +47,8 @@ package.check <- lapply(packages, FUN = function(x) {
 
 Example APA7 the reference [@datafiniti2018].
 
+# Data preparation
+
 # Methodology
 
 # Conclusion
