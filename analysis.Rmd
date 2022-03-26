@@ -45,8 +45,19 @@ package.check <- lapply(packages, FUN = function(x) {
 \fancyhead[R]{Machine Learning I}
 # Introduction
 
-Example APA7 the reference [@datafiniti2018].
-hello
+Employees, according to @IBM_Developer_Challenge_2020, are the foundation of any business. Its success is largely determined by the quality of its employees and their ability to stay with the company. Organizations confront a number of issues as a result of staff attrition:
+
+1. Training new personnel is costly in terms of both money and time.
+2. Potential to lose experienced employees
+3. Productivity impact
+4. Profitability impact
+
+Therefore, IBM data scientists created a fictitious data set as a challenge for data scientists. Among the data types are metrics such as education level, job satisfaction, and commute distance. The dataset can be found on the company's GitHub account [@IBM_Data_2019].
+
+```{r}
+emp_attrition <- read.csv("./data/emp_attrition.csv")
+head(emp_attrition)
+```
 
 # Methodology
 
