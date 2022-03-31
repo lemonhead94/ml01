@@ -1,0 +1,224 @@
+---
+output:
+  bookdown::pdf_document2:
+    includes:
+      in_header: latex/preamble.tex
+      before_body: latex/titlepage.tex
+    pandoc_args:
+    - --csl
+    - references/apa.csl
+  bookdown::html_document2:
+    pandoc_args:
+    - --csl
+    - references/apa.csl
+  bookdown::word_document2:
+    pandoc_args:
+    - --csl
+    - references/apa.csl
+toc-title: Table of Contents
+bibliography: references/references.bib
+link-citations: yes
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \renewcommand{\headrulewidth}{0pt}
+- \fancyfoot[C]{}
+- \fancyfoot[R]{\thepage}
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, messages = FALSE)
+packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra")
+package.check <- lapply(packages, FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+        install.packages(x, dependencies = TRUE)
+        library(x, character.only = TRUE)
+    }
+})
+```
+\fancyhead[LR]{}
+\pagenumbering{roman}
+
+\newpage
+\cleardoublepage
+\pagenumbering{arabic}
+\fancyhead[L]{Employee Attrition Model}
+\fancyhead[R]{Machine Learning I}
+# Introduction
+
+Employees, according to @IBM_Developer_Challenge_2020, are the foundation of any business. Its success is largely determined by the quality of its employees and their ability to stay with the company. Organizations confront a number of issues as a result of staff attrition:
+
+1. Training new personnel is costly in terms of both money and time.
+2. Potential to lose experienced employees
+3. Productivity impact
+4. Profitability impact
+
+Therefore, IBM data scientists created a fictitious data set as a challenge for data scientists. Among the data types are metrics such as education level, job satisfaction, and commute distance. The dataset can be found on the company's GitHub account [@IBM_Data_2019].
+
+# Methodology
+
+The following topics are layed out through out this paper:
+
+1. Linear Models
+2. Extending the Linear Model: Non-linearity
+3. Extending the Linear Model: Generalised Linear Models
+4. Support Vector Machines
+5. Neural Networks
+6. Optimisation
+
+# Data preparation
+```{r import-data, echo = FALSE, results = FALSE}
+emp_attrition <- read.csv("./data/emp_attrition.csv")
+head(emp_attrition)
+```
+
+## Data Transformation and Sanity Check
+```{r formatting-data, echo = FALSE, results = FALSE}
+# Age
+summary(emp_attrition$Age)
+
+# Attrition
+emp_attrition$Attrition <- as.factor(emp_attrition$Attrition)
+unique(emp_attrition$Attrition)
+
+# BusinessTravel
+emp_attrition$BusinessTravel <- as.factor(emp_attrition$BusinessTravel)
+levels(emp_attrition$BusinessTravel) <- c("Rarely", "Frequently", "None")
+unique(emp_attrition$BusinessTravel)
+
+# DailyRate
+summary(emp_attrition$DailyRate)
+
+# Department
+emp_attrition$Department <- as.factor(emp_attrition$Department)
+levels(emp_attrition$Department) <- c("Sales", "R&D", "HR")
+unique(emp_attrition$Department)
+
+# DistanceFromHome
+summary(emp_attrition$DistanceFromHome)
+
+# Education
+summary(emp_attrition$Education)
+
+# EducationField
+emp_attrition$EducationField <- as.factor(emp_attrition$EducationField)
+unique(emp_attrition$EducationField)
+
+# EmployeeCount
+unique(emp_attrition$EmployeeCount) # only 1, hence drop this variable (TODO)
+
+# EmployeeNumber
+summary(emp_attrition$EmployeeNumber) # internal employee id
+
+# EnvironmentSatisfaction
+emp_attrition$EnvironmentSatisfaction <- as.factor(emp_attrition$EnvironmentSatisfaction)
+unique(emp_attrition$EnvironmentSatisfaction)
+
+# Gender
+emp_attrition$Gender <- as.factor(emp_attrition$Gender)
+unique(emp_attrition$Gender)
+
+# HourlyRate
+summary(emp_attrition$HourlyRate)
+
+# JobInvolvement
+emp_attrition$JobInvolvement <- as.factor(emp_attrition$JobInvolvement)
+unique(emp_attrition$JobInvolvement)
+
+# JobLevel
+emp_attrition$JobLevel <- as.factor(emp_attrition$JobLevel)
+unique(emp_attrition$JobLevel)
+
+# JobRole
+emp_attrition$JobRole <- as.factor(emp_attrition$JobRole)
+unique(emp_attrition$JobRole)
+
+# JobSatisfaction
+emp_attrition$JobSatisfaction <- as.factor(emp_attrition$JobSatisfaction)
+unique(emp_attrition$JobSatisfaction)
+
+# MaritalStatus
+emp_attrition$MaritalStatus <- as.factor(emp_attrition$MaritalStatus)
+unique(emp_attrition$MaritalStatus)
+
+# MonthlyIncome
+summary(emp_attrition$MonthlyIncome)
+
+# MonthlyRate
+summary(emp_attrition$MonthlyRate)
+
+# NumCompaniesWorked
+emp_attrition$NumCompaniesWorked <- as.factor(emp_attrition$NumCompaniesWorked)
+unique(emp_attrition$NumCompaniesWorked)
+
+# Over18
+unique(emp_attrition$Over18) # all employee's are above 18, hence drop this variable (TODO)
+
+# OverTime
+emp_attrition$OverTime <- as.factor(emp_attrition$OverTime)
+unique(emp_attrition$OverTime)
+
+# PercentSalaryHike
+summary(emp_attrition$PercentSalaryHike)
+
+# PerformanceRating
+emp_attrition$PerformanceRating <- as.factor(emp_attrition$PerformanceRating)
+unique(emp_attrition$PerformanceRating) # only employee's who perform 3 or 4, is that correct? (TODO)
+
+# RelationshipSatisfaction
+emp_attrition$RelationshipSatisfaction <- as.factor(emp_attrition$RelationshipSatisfaction)
+unique(emp_attrition$RelationshipSatisfaction)
+
+# StandardHours
+unique(emp_attrition$StandardHours) # the StandardHours for all employee's is 80, hence drop this variable (TODO)
+
+# StockOptionLevel
+emp_attrition$StockOptionLevel <- as.factor(emp_attrition$StockOptionLevel)
+unique(emp_attrition$StockOptionLevel)
+
+# TotalWorkingYears
+summary(emp_attrition$TotalWorkingYears)
+
+# TrainingTimesLastYear
+unique(emp_attrition$TrainingTimesLastYear)
+
+# WorkLifeBalance
+emp_attrition$WorkLifeBalance <- as.factor(emp_attrition$WorkLifeBalance)
+unique(emp_attrition$WorkLifeBalance)
+
+# YearsAtCompany
+summary(emp_attrition$YearsAtCompany)
+
+# YearsInCurrentRole
+summary(emp_attrition$YearsInCurrentRole)
+
+# YearsSinceLastPromotion
+summary(emp_attrition$YearsSinceLastPromotion)
+
+# YearsWithCurrManager
+summary(emp_attrition$YearsWithCurrManager)
+```
+
+The following variables are available:
+
+```{r variable-table, echo = FALSE, message = FALSE, results = 'asis'}
+labels(emp_attrition) <- colnames(emp_attrition)
+labels(emp_attrition, which = c("Age", "BusinessTravel", "DailyRate", "DistanceFromHome", "Education", "EducationField", "EmployeeNumber", "EnvironmentSatisfaction", "HourlyRate", "JobInvolvement", "JobLevel", "JobRole", "JobSatisfaction", "MaritalStatus", "MonthlyIncome", "MonthlyRate", "NumCompaniesWorked", "OverTime", "PercentSalaryHike", "PerformanceRating", "RelationshipSatisfaction", "StockOptionLevel", "TotalWorkingYears", "TrainingTimesLastYear", "WorkLifeBalance", "YearsAtCompany", "YearsInCurrentRole", "YearsSinceLastPromotion", "YearsWithCurrManager")) <- c("Age (years)", "Business Travel", "Daily Rate (TODO)", "Distance From Home (TODO 1-29)", "Education (TODO 1-5)", "Education Field", "Employee ID", "Environment Satisfaction (TODO 1-4)", "Hourly Rate (TODO, to external?)", "Job Involvement (TODO 1-4)", "Job Level (TODO 1-5)", "Job Role", "Job Satisfaction (TODO 1-4)", "Marital Status", "Monthly Income", "Monthly Rate (TODO)", "# of companies worked before starting this position", "has done over time", "% Salary Hike", "Performance Rating (TODO 3 or 4)", "Relationship Satisfaction (TODO what is higherst 1-4)", "Stock Option Level (TODO 0-3)", "Total Working Years", "Number Of Trainings Done Last Year", "Work Life Balance Rating (TODO what is highest 1-4)", "Number Of Years At Company", "Number of Years In Current Role", "Number Of Years Since Last Promotion", "Number Of Years With Current Manager")
+
+kable(summarize(emp_attrition, type = "numeric"), "latex", booktabs = TRUE, longtable = TRUE, caption = "Summary Numeric Variables") %>%
+  kable_styling(latex_options = c("hold_position", "repeat_header"))
+
+kable(summarize(emp_attrition, type = "factor"), "latex", booktabs = TRUE, longtable = TRUE, caption = "Summary Factor Variables") %>%
+  kable_styling(latex_options = c("hold_position", "repeat_header"))
+```
+
+## Missing Value Check
+```{r check-for-missing-values, echo = TRUE, results = FALSE}
+# Do we have any missing values?
+sapply(emp_attrition, function(x) all(is.na(x) | x == '' ))
+```
+There are no missing values in this dataset.
+
+# Conclusion
+
+\newpage
+# References
