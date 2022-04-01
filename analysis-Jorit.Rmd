@@ -65,6 +65,7 @@ The following topics are layed out through out this paper:
 5. Neural Networks
 6. Optimisation
 
+\newpage
 # Data preparation
 ```{r import-data, echo = FALSE, results = FALSE}
 emp_attrition <- read.csv("./data/emp_attrition.csv")
@@ -72,6 +73,8 @@ head(emp_attrition)
 ```
 
 ## Data Transformation and Sanity Check
+
+The code for this part is left out from the PDF due to its length...
 ```{r formatting-data, echo = FALSE, results = FALSE}
 # Age
 summary(emp_attrition$Age)
@@ -97,20 +100,23 @@ unique(emp_attrition$Department)
 summary(emp_attrition$DistanceFromHome)
 
 # Education
-summary(emp_attrition$Education)
+emp_attrition$Education <- as.factor(emp_attrition$Education)
+levels(emp_attrition$Education) <- c("Below College", "College", "Bachelor", "Master", "Doctor")
+unique(emp_attrition$Education)
 
 # EducationField
 emp_attrition$EducationField <- as.factor(emp_attrition$EducationField)
 unique(emp_attrition$EducationField)
 
 # EmployeeCount
-unique(emp_attrition$EmployeeCount) # only 1, hence drop this variable (TODO)
+unique(emp_attrition$EmployeeCount) # represents headcount which for all employee's in this dataset 1
 
 # EmployeeNumber
 summary(emp_attrition$EmployeeNumber) # internal employee id
 
 # EnvironmentSatisfaction
 emp_attrition$EnvironmentSatisfaction <- as.factor(emp_attrition$EnvironmentSatisfaction)
+levels(emp_attrition$EnvironmentSatisfaction) <- c("Low", "Medium", "High", "Very High")
 unique(emp_attrition$EnvironmentSatisfaction)
 
 # Gender
@@ -122,6 +128,7 @@ summary(emp_attrition$HourlyRate)
 
 # JobInvolvement
 emp_attrition$JobInvolvement <- as.factor(emp_attrition$JobInvolvement)
+levels(emp_attrition$JobInvolvement) <- c("Low", "Medium", "High", "Very High")
 unique(emp_attrition$JobInvolvement)
 
 # JobLevel
@@ -134,6 +141,7 @@ unique(emp_attrition$JobRole)
 
 # JobSatisfaction
 emp_attrition$JobSatisfaction <- as.factor(emp_attrition$JobSatisfaction)
+levels(emp_attrition$JobSatisfaction) <- c("Low", "Medium", "High", "Very High")
 unique(emp_attrition$JobSatisfaction)
 
 # MaritalStatus
@@ -147,11 +155,10 @@ summary(emp_attrition$MonthlyIncome)
 summary(emp_attrition$MonthlyRate)
 
 # NumCompaniesWorked
-emp_attrition$NumCompaniesWorked <- as.factor(emp_attrition$NumCompaniesWorked)
 unique(emp_attrition$NumCompaniesWorked)
 
 # Over18
-unique(emp_attrition$Over18) # all employee's are above 18, hence drop this variable (TODO)
+unique(emp_attrition$Over18) # all employee's are above 18
 
 # OverTime
 emp_attrition$OverTime <- as.factor(emp_attrition$OverTime)
@@ -162,14 +169,16 @@ summary(emp_attrition$PercentSalaryHike)
 
 # PerformanceRating
 emp_attrition$PerformanceRating <- as.factor(emp_attrition$PerformanceRating)
-unique(emp_attrition$PerformanceRating) # only employee's who perform 3 or 4, is that correct? (TODO)
+levels(emp_attrition$PerformanceRating) <- c("Excellent", "Outstanding")
+unique(emp_attrition$PerformanceRating) # only employee's who perform 3 or 4
 
 # RelationshipSatisfaction
 emp_attrition$RelationshipSatisfaction <- as.factor(emp_attrition$RelationshipSatisfaction)
+levels(emp_attrition$RelationshipSatisfaction) <- c("Low", "Medium", "High", "Very High")
 unique(emp_attrition$RelationshipSatisfaction)
 
 # StandardHours
-unique(emp_attrition$StandardHours) # the StandardHours for all employee's is 80, hence drop this variable (TODO)
+unique(emp_attrition$StandardHours) # the StandardHours for all employee's is 80, after check this means that this data has a 9/80 work schedule. Hence, employees work 80 hours in 9 days. So not a standard as 5/42 as in switzerland..
 
 # StockOptionLevel
 emp_attrition$StockOptionLevel <- as.factor(emp_attrition$StockOptionLevel)
@@ -183,6 +192,7 @@ unique(emp_attrition$TrainingTimesLastYear)
 
 # WorkLifeBalance
 emp_attrition$WorkLifeBalance <- as.factor(emp_attrition$WorkLifeBalance)
+levels(emp_attrition$WorkLifeBalance) <- c("Bad", "Good", "Better", "Best")
 unique(emp_attrition$WorkLifeBalance)
 
 # YearsAtCompany
@@ -196,20 +206,20 @@ summary(emp_attrition$YearsSinceLastPromotion)
 
 # YearsWithCurrManager
 summary(emp_attrition$YearsWithCurrManager)
-```
 
-The following variables are available:
-
-```{r variable-table, echo = FALSE, message = FALSE, results = 'asis'}
 labels(emp_attrition) <- colnames(emp_attrition)
-labels(emp_attrition, which = c("Age", "BusinessTravel", "DailyRate", "DistanceFromHome", "Education", "EducationField", "EmployeeNumber", "EnvironmentSatisfaction", "HourlyRate", "JobInvolvement", "JobLevel", "JobRole", "JobSatisfaction", "MaritalStatus", "MonthlyIncome", "MonthlyRate", "NumCompaniesWorked", "OverTime", "PercentSalaryHike", "PerformanceRating", "RelationshipSatisfaction", "StockOptionLevel", "TotalWorkingYears", "TrainingTimesLastYear", "WorkLifeBalance", "YearsAtCompany", "YearsInCurrentRole", "YearsSinceLastPromotion", "YearsWithCurrManager")) <- c("Age (years)", "Business Travel", "Daily Rate (TODO)", "Distance From Home (TODO 1-29)", "Education (TODO 1-5)", "Education Field", "Employee ID", "Environment Satisfaction (TODO 1-4)", "Hourly Rate (TODO, to external?)", "Job Involvement (TODO 1-4)", "Job Level (TODO 1-5)", "Job Role", "Job Satisfaction (TODO 1-4)", "Marital Status", "Monthly Income", "Monthly Rate (TODO)", "# of companies worked before starting this position", "has done over time", "% Salary Hike", "Performance Rating (TODO 3 or 4)", "Relationship Satisfaction (TODO what is higherst 1-4)", "Stock Option Level (TODO 0-3)", "Total Working Years", "Number Of Trainings Done Last Year", "Work Life Balance Rating (TODO what is highest 1-4)", "Number Of Years At Company", "Number of Years In Current Role", "Number Of Years Since Last Promotion", "Number Of Years With Current Manager")
-
-kable(summarize(emp_attrition, type = "numeric"), "latex", booktabs = TRUE, longtable = TRUE, caption = "Summary Numeric Variables") %>%
-  kable_styling(latex_options = c("hold_position", "repeat_header"))
-
-kable(summarize(emp_attrition, type = "factor"), "latex", booktabs = TRUE, longtable = TRUE, caption = "Summary Factor Variables") %>%
-  kable_styling(latex_options = c("hold_position", "repeat_header"))
+labels(emp_attrition, which = c("Age", "BusinessTravel", "DailyRate", "DistanceFromHome", "EducationField", "EmployeeNumber", "EnvironmentSatisfaction", "HourlyRate", "JobInvolvement", "JobLevel", "JobRole", "JobSatisfaction", "MaritalStatus", "MonthlyIncome", "MonthlyRate", "NumCompaniesWorked", "OverTime", "PercentSalaryHike", "PerformanceRating", "RelationshipSatisfaction", "StockOptionLevel", "TotalWorkingYears", "TrainingTimesLastYear", "WorkLifeBalance", "YearsAtCompany", "YearsInCurrentRole", "YearsSinceLastPromotion", "YearsWithCurrManager")) <- c("Age (years)", "Business Travel", "Daily Rate (salary per day)", "Distance From Home (1-29)", "Education Field", "Employee ID", "Environment Satisfaction", "Hourly Rate (salary per hour)", "Job Involvement", "Job Level (internal company hierachy 1-5)", "Job Role", "Job Satisfaction", "Marital Status", "Monthly Income", "Monthly Rate (salary per month)", "Number of Companies worked before starting this position", "has done over time", "% Salary Hike", "Performance Rating", "Relationship Satisfaction", "Stock Option Level (number of stocks an employee owns from 0-3)", "Total Working Years", "Number Of Trainings Done Last Year", "Work Life Balance", "Number Of Years At Company", "Number of Years In Current Role", "Number Of Years Since Last Promotion", "Number Of Years With Current Manager")
 ```
+
+## Data Cleaning
+
+```{r data-cleaning}
+emp_attrition <- emp_attrition %>% select (-c(EmployeeCount, StandardHours, Over18))
+```
+
+- EmployeeCount (represents the head count which is 1 for all employee, hence drop this)
+- StandardHours (StandardHours for all employee's is 80, therefore this data has a 9/80 work schedule. Hence, employees work 80 hours in 9 days. So not a standard as 5/42 as in switzerland, we drop this)
+- Over18 (all employee's are 18 or above and it's capured in age, hence drop this variable)
 
 ## Missing Value Check
 ```{r check-for-missing-values, echo = TRUE, results = FALSE}
@@ -218,7 +228,35 @@ sapply(emp_attrition, function(x) all(is.na(x) | x == '' ))
 ```
 There are no missing values in this dataset.
 
+\newpage
+## Overview of Dataset
+
+
+```{r numeric-variable-table, echo = FALSE, message = FALSE, results='asis'}
+kable(summarize(emp_attrition, type = "numeric"), 
+      caption = "Summary Numeric Variables", format = "latex", booktabs = TRUE) %>%
+  kable_styling(latex_options = "hold_position")
+```
+
+```{r factor-variable-table, echo = FALSE, message = FALSE, results='asis'}
+summary.factors <- papeR::summarize(emp_attrition, type = "factor")
+kable(list(summary.factors[1:33,], summary.factors[34:66,]), 
+      caption = "Summary Factor Variables", format = "latex", booktabs = TRUE, row.names = FALSE) %>%
+  kable_styling(latex_options = "hold_position", font_size = 5.8)
+```
+
+\newpage
+# Exploration
+
 # Conclusion
 
 \newpage
+# Session Information {-}
+
+```{r session-info}
+sessionInfo()
+```
+
+\newpage
 # References
+
