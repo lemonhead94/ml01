@@ -1,5 +1,5 @@
 # Employee Attrition Model
-## IBM HR Analytics Employee Attrition & Performance
+> IBM HR Analytics Employee Attrition & Performance
 
 **Authors:** Levin Reichmuth, Jorit Studer and Taejun Moon
 
