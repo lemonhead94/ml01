@@ -1,4 +1,5 @@
-# Machine Learning I: Group Work 1
+# Employee Attrition Model
+> IBM HR Analytics Employee Attrition & Performance
 
 **Authors:** Levin Reichmuth, Jorit Studer and Taejun Moon
 
@@ -10,8 +11,11 @@
 
 ```
 |--analysis.pdf       # Report rendered by Bookdown
-|--data\              # Data for the analysis (CSV and XLSX)
+|--data\              # Data for the analysis (CSV)
+  |--emp_attrition.csv 
 |--latex\             # Custom Title Page in Latex
+  |--preamble.tex     
+  |--titlepage.tex
 |--references\        # References
   |--references.bib     # BibTeX references
   |--apa.csl            # APA 7th Edition Citation Style Language
@@ -22,7 +26,7 @@
 The following packages are required to knitr this report using bookdown.
 
 ```r
-packages <- c("bookdown", "dplyr", "ggplot2")
+packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra")
 package.check <- lapply(packages, FUN = function(x) {
     if (!require(x, character.only = TRUE)) {
         install.packages(x, dependencies = TRUE)
