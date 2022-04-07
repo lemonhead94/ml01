@@ -641,16 +641,35 @@ glm.attrition <- glm(Attrition ~ Age + BusinessTravel +
     JobRole:OverTime + JobRole:WorkLifeBalance + NumCompaniesWorked:OverTime + 
     NumCompaniesWorked:StockOptionLevel + OverTime:RelationshipSatisfaction + 
     OverTime:StockOptionLevel + WorkLifeBalance:YearsSinceLastPromotion, data = emp_attrition, family = binomial)
-summary(glm.attrition)
-drop1(glm.attrition, test = "F")
 
+#confint(glm.attrition, level = 0.95)
+#summary(glm.attrition)
+#drop1(glm.attrition, test = "F")
+```
+
+```{r glm-plots, warning=FALSE, message=FALSE}
 ggplot(emp_attrition, aes(Age, ifelse(Attrition == "Yes", 1, 0))) +
   geom_point(alpha = 0.15) +
   geom_smooth(method = "gam", method.args = list(family = "binomial")) +
   ggtitle("GLM Attrition ~ Age") +
   xlab("Age") +
   ylab("Probability of Attrition")
+
+ggplot(emp_attrition, aes(OverTime, glm.attrition$fitted.values, color = OverTime)) +
+  geom_boxplot(show.legend = FALSE) +
+  geom_rug(sides = "b", position = "jitter", alpha = 0.2, show.legend = FALSE) +
+  ggtitle("Predicted probabilities") +
+  xlab("Over Time") +
+  scale_y_continuous("Probability of Attrition", limits = c(0, 1))
+
+ggplot(emp_attrition, aes(Age, glm.attrition$fitted.values, color = OverTime)) +
+  geom_point(alpha = 0.15) +
+  geom_smooth(method = "gam", method.args = list(family = "quasibinomial")) +
+  ggtitle("GLM Attrition ~ Age") +
+  xlab("Age") +
+  ylab("Probability of Attrition")
 ```
+
 
 
 
