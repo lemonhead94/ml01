@@ -640,39 +640,84 @@ glm.attrition <- glm(Attrition ~ Age + BusinessTravel +
     EnvironmentSatisfaction:WorkLifeBalance + JobLevel:OverTime + 
     JobRole:OverTime + JobRole:WorkLifeBalance + NumCompaniesWorked:OverTime + 
     NumCompaniesWorked:StockOptionLevel + OverTime:RelationshipSatisfaction + 
-    OverTime:StockOptionLevel + WorkLifeBalance:YearsSinceLastPromotion, data = emp_attrition, family = binomial)
+    OverTime:StockOptionLevel + WorkLifeBalance:YearsSinceLastPromotion, 
+    data = emp_attrition, family = binomial)
 
 #confint(glm.attrition, level = 0.95)
 #summary(glm.attrition)
 #drop1(glm.attrition, test = "F")
 ```
 
-```{r glm-plots, warning=FALSE, message=FALSE}
-ggplot(emp_attrition, aes(Age, ifelse(Attrition == "Yes", 1, 0))) +
-  geom_point(alpha = 0.15) +
-  geom_smooth(method = "gam", method.args = list(family = "binomial")) +
-  ggtitle("GLM Attrition ~ Age") +
-  xlab("Age") +
-  ylab("Probability of Attrition")
+### Age
 
-ggplot(emp_attrition, aes(OverTime, glm.attrition$fitted.values, color = OverTime)) +
-  geom_boxplot(show.legend = FALSE) +
-  geom_rug(sides = "b", position = "jitter", alpha = 0.2, show.legend = FALSE) +
-  ggtitle("Predicted probabilities") +
-  xlab("Over Time") +
-  scale_y_continuous("Probability of Attrition", limits = c(0, 1))
-
-ggplot(emp_attrition, aes(Age, glm.attrition$fitted.values, color = OverTime)) +
+```{r glm-plots-age, fig.show='hold', out.width = "33%", warning=FALSE, message=FALSE, echo = FALSE }
+ggplot(emp_attrition, aes(Age, glm.attrition$fitted.values)) +
   geom_point(alpha = 0.15) +
   geom_smooth(method = "gam", method.args = list(family = "quasibinomial")) +
-  ggtitle("GLM Attrition ~ Age") +
-  xlab("Age") +
-  ylab("Probability of Attrition")
+  labs(title="Attrition ~ Age", x="Age", y="Probability of Attrition")
+
+ggplot(emp_attrition, aes(Age, glm.attrition$fitted.values, color = JobSatisfaction)) +
+  geom_point(alpha = 0.15) +
+  geom_smooth(method = "gam", method.args = list(family = "quasibinomial")) +
+  labs(title="Attrition ~ Age", x="Age", y="Probability of Attrition", color="Job Satisfaction")
+
+ggplot(emp_attrition, aes(Age, glm.attrition$fitted.values, color = StockOptionLevel)) +
+  geom_point(alpha = 0.15) +
+  geom_smooth(method = "gam", method.args = list(family = "quasibinomial")) +
+  labs(title="Attrition ~ Age", x="Age", y="Probability of Attrition", color="Stock Option Level")
 ```
 
+### Business Travel
 
+```{r glm-plots-businessTravel, fig.show='hold', out.width = "50%", warning=FALSE, message=FALSE, echo = FALSE }
+ggplot(emp_attrition, aes(BusinessTravel, glm.attrition$fitted.values, color = BusinessTravel)) +
+  geom_boxplot(show.legend = FALSE) +
+  geom_rug(sides = "b", position = "jitter", alpha = 0.2, show.legend = FALSE) +
+  labs(title="Attrition ~ Business Travel", x="Business Travel", y="Probability of Attrition")
 
+ggplot(emp_attrition, aes(YearsAtCompany, glm.attrition$fitted.values, color = BusinessTravel)) +
+  geom_boxplot(show.legend = FALSE) +
+  facet_wrap(~BusinessTravel) +
+  labs(title="Attrition ~ Business Travel", x="Years At Company", y="Probability of Attrition")
+```
 
+### Distance From Home
+
+```{r glm-plots-distanceFromHome, fig.show='hold', out.width = "50%", warning=FALSE, message=FALSE, echo = FALSE }
+ggplot(emp_attrition, aes(DistanceFromHome, glm.attrition$fitted.values)) +
+  geom_point(alpha = 0.15) +
+  geom_smooth(method = "gam", method.args = list(family = "quasibinomial")) +
+  labs(title="Attrition ~ DistanceFromHome", x="Distance From Home", y="Probability of Attrition")
+
+ggplot(emp_attrition, aes(DistanceFromHome, glm.attrition$fitted.values, color = OverTime)) +
+  geom_point(alpha = 0.15) +
+  geom_smooth(method = "gam", method.args = list(family = "quasibinomial")) +
+  labs(title="Attrition ~ DistanceFromHome", x="Distance From Home", y="Probability of Attrition", color="Over Time")
+```
+
+### Education Field
+
+```{r glm-plots-educationField, fig.show='hold', out.width = "50%", warning=FALSE, message=FALSE, echo = FALSE}
+ggplot(emp_attrition, aes(EducationField, glm.attrition$fitted.values, color = EducationField)) +
+  geom_boxplot(show.legend = FALSE) +
+  geom_rug(sides = "b", position = "jitter", alpha = 0.2, show.legend = FALSE) +
+  labs(title="Attrition ~ Education Field", x="Education Field", y="Probability of Attrition")
+```
+
+### Environment Satisfaction
+
+```{r glm-plots-EnvironmentSatisfaction, fig.show='hold', out.width = "50%", warning=FALSE, message=FALSE, echo = FALSE}
+ggplot(emp_attrition, aes(EnvironmentSatisfaction, glm.attrition$fitted.values, color = EnvironmentSatisfaction)) +
+  geom_boxplot(show.legend = FALSE) +
+  geom_rug(sides = "b", position = "jitter", alpha = 0.2, show.legend = FALSE) +
+  labs(title="Attrition ~ Environment Satisfaction", x="Environment Satisfaction", y="Probability of Attrition")
+
+ggplot(emp_attrition, aes(EnvironmentSatisfaction, glm.attrition$fitted.values, color = JobInvolvement)) +
+  geom_boxplot(show.legend = TRUE) +
+  labs(title="Attrition ~ Environment Satisfaction", x="Environment Satisfaction", y="Probability of Attrition", color="Job Involvement")
+
+# EnvironmentSatisfaction:WorkLifeBalance
+```
 
 \newpage
 # Conclusion
