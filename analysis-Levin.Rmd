@@ -1,0 +1,437 @@
+# ---
+# output:
+#   bookdown::pdf_document2:
+#     includes:
+#       in_header: latex/preamble.tex
+#       before_body: latex/titlepage.tex
+#     pandoc_args:
+#     - --csl
+#     - references/apa.csl
+#   bookdown::html_document2:
+#     pandoc_args:
+#     - --csl
+#     - references/apa.csl
+#   bookdown::word_document2:
+#     pandoc_args:
+#     - --csl
+#     - references/apa.csl
+# toc-title: Table of Contents
+# bibliography: references/references.bib
+# link-citations: yes
+# header-includes:
+# - \usepackage{fancyhdr}
+# - \pagestyle{fancy}
+# - \renewcommand{\headrulewidth}{0pt}
+# - \fancyfoot[C]{}
+# - \fancyfoot[R]{\thepage}
+# ---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, messages = FALSE)
+packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra", "mgcv")
+package.check <- lapply(packages, FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+        install.packages(x, dependencies = TRUE)
+        library(x, character.only = TRUE)
+    }
+})
+```
+\fancyhead[LR]{}
+\pagenumbering{roman}
+
+\newpage
+\cleardoublepage
+\pagenumbering{arabic}
+\fancyhead[L]{Employee Attrition Model}
+\fancyhead[R]{Machine Learning I}
+# Introduction
+
+Employees, according to @IBM_Developer_Challenge_2020, are the foundation of any business. Its success is largely determined by the quality of its employees and their ability to stay with the company. Organizations confront a number of issues as a result of staff attrition:
+
+1. Training new personnel is costly in terms of both money and time.
+2. Potential to lose experienced employees
+3. Productivity impact
+4. Profitability impact
+
+Therefore, IBM data scientists created a fictitious data set as a challenge for data scientists. Among the data types are metrics such as education level, job satisfaction, and commute distance. The dataset can be found on the company's GitHub account [@IBM_Data_2019].
+
+# Methodology
+
+The following topics are layed out through out this paper:
+
+1. Linear Models
+2. Extending the Linear Model: Non-linearity
+3. Extending the Linear Model: Generalised Linear Models
+4. Support Vector Machines
+5. Neural Networks
+6. Optimisation
+
+\newpage
+# Data preparation
+```{r import-data, echo = FALSE, results = FALSE}
+# Working directory
+setwd("~/HSLU/FS_22/Machine_learning/Groupwork/Github")
+emp_attrition <- read.csv("emp_attrition.csv")
+head(emp_attrition)
+```
+
+## Data Transformation and Sanity Check
+
+The code for this part is left out from the PDF due to its length...
+```{r formatting-data, echo = FALSE, results = FALSE}
+# Age
+names(emp_attrition)[names(emp_attrition) == "ï..Age"] <- "Age"
+summary(emp_attrition$Age)
+
+# Attrition
+emp_attrition$Attrition <- as.factor(emp_attrition$Attrition)
+unique(emp_attrition$Attrition)
+
+# BusinessTravel
+emp_attrition$BusinessTravel <- as.factor(emp_attrition$BusinessTravel)
+levels(emp_attrition$BusinessTravel) <- c("Rarely", "Frequently", "None")
+emp_attrition$BusinessTravel <- relevel(emp_attrition$BusinessTravel, ref = "None")
+unique(emp_attrition$BusinessTravel)
+
+# DailyRate
+summary(emp_attrition$DailyRate)
+
+# Department
+emp_attrition$Department <- as.factor(emp_attrition$Department)
+levels(emp_attrition$Department) <- c("Sales", "R&D", "HR")
+unique(emp_attrition$Department)
+
+# DistanceFromHome
+summary(emp_attrition$DistanceFromHome)
+
+# Education
+emp_attrition$Education <- as.factor(emp_attrition$Education)
+levels(emp_attrition$Education) <- c("Below College", "College", "Bachelor", "Master", "Doctor")
+unique(emp_attrition$Education)
+
+# EducationField
+emp_attrition$EducationField <- as.factor(emp_attrition$EducationField)
+unique(emp_attrition$EducationField)
+
+# EmployeeCount
+unique(emp_attrition$EmployeeCount) # represents headcount which for all employee's in this dataset 1
+
+# EmployeeNumber
+summary(emp_attrition$EmployeeNumber) # internal employee id
+
+# EnvironmentSatisfaction
+emp_attrition$EnvironmentSatisfaction <- as.factor(emp_attrition$EnvironmentSatisfaction)
+levels(emp_attrition$EnvironmentSatisfaction) <- c("Low", "Medium", "High", "Very High")
+unique(emp_attrition$EnvironmentSatisfaction)
+
+# Gender
+emp_attrition$Gender <- as.factor(emp_attrition$Gender)
+unique(emp_attrition$Gender)
+
+# HourlyRate
+summary(emp_attrition$HourlyRate)
+
+# JobInvolvement
+emp_attrition$JobInvolvement <- as.factor(emp_attrition$JobInvolvement)
+levels(emp_attrition$JobInvolvement) <- c("Low", "Medium", "High", "Very High")
+unique(emp_attrition$JobInvolvement)
+
+# JobLevel
+emp_attrition$JobLevel <- as.factor(emp_attrition$JobLevel)
+unique(emp_attrition$JobLevel)
+
+# JobRole
+emp_attrition$JobRole <- as.factor(emp_attrition$JobRole)
+unique(emp_attrition$JobRole)
+
+# JobSatisfaction
+emp_attrition$JobSatisfaction <- as.factor(emp_attrition$JobSatisfaction)
+levels(emp_attrition$JobSatisfaction) <- c("Low", "Medium", "High", "Very High")
+unique(emp_attrition$JobSatisfaction)
+
+# MaritalStatus
+emp_attrition$MaritalStatus <- as.factor(emp_attrition$MaritalStatus)
+unique(emp_attrition$MaritalStatus)
+
+# MonthlyIncome
+summary(emp_attrition$MonthlyIncome)
+
+# MonthlyRate
+summary(emp_attrition$MonthlyRate)
+
+# NumCompaniesWorked
+unique(emp_attrition$NumCompaniesWorked)
+
+# Over18
+unique(emp_attrition$Over18) # all employee's are above 18
+
+# OverTime
+emp_attrition$OverTime <- as.factor(emp_attrition$OverTime)
+unique(emp_attrition$OverTime)
+
+# PercentSalaryHike
+summary(emp_attrition$PercentSalaryHike)
+
+# PerformanceRating
+emp_attrition$PerformanceRating <- as.factor(emp_attrition$PerformanceRating)
+levels(emp_attrition$PerformanceRating) <- c("Excellent", "Outstanding")
+unique(emp_attrition$PerformanceRating) # only employee's who perform 3 or 4
+
+# RelationshipSatisfaction
+emp_attrition$RelationshipSatisfaction <- as.factor(emp_attrition$RelationshipSatisfaction)
+levels(emp_attrition$RelationshipSatisfaction) <- c("Low", "Medium", "High", "Very High")
+unique(emp_attrition$RelationshipSatisfaction)
+
+# StandardHours
+unique(emp_attrition$StandardHours) # the StandardHours for all employee's is 80, after check this means that this data has a 9/80 work schedule. Hence, employees work 80 hours in 9 days. So not a standard as 5/42 as in switzerland..
+
+# StockOptionLevel
+emp_attrition$StockOptionLevel <- as.factor(emp_attrition$StockOptionLevel)
+unique(emp_attrition$StockOptionLevel)
+
+# TotalWorkingYears
+summary(emp_attrition$TotalWorkingYears)
+
+# TrainingTimesLastYear
+unique(emp_attrition$TrainingTimesLastYear)
+
+# WorkLifeBalance
+emp_attrition$WorkLifeBalance <- as.factor(emp_attrition$WorkLifeBalance)
+levels(emp_attrition$WorkLifeBalance) <- c("Bad", "Good", "Better", "Best")
+unique(emp_attrition$WorkLifeBalance)
+
+# YearsAtCompany
+summary(emp_attrition$YearsAtCompany)
+
+# YearsInCurrentRole
+summary(emp_attrition$YearsInCurrentRole)
+
+# YearsSinceLastPromotion
+summary(emp_attrition$YearsSinceLastPromotion)
+
+# YearsWithCurrManager
+summary(emp_attrition$YearsWithCurrManager)
+
+labels(emp_attrition) <- colnames(emp_attrition)
+labels(emp_attrition, which = c("Age", "BusinessTravel", "DailyRate", "DistanceFromHome", "EducationField", "EmployeeNumber", "EnvironmentSatisfaction", "HourlyRate", "JobInvolvement", "JobLevel", "JobRole", "JobSatisfaction", "MaritalStatus", "MonthlyIncome", "MonthlyRate", "NumCompaniesWorked", "OverTime", "PercentSalaryHike", "PerformanceRating", "RelationshipSatisfaction", "StockOptionLevel", "TotalWorkingYears", "TrainingTimesLastYear", "WorkLifeBalance", "YearsAtCompany", "YearsInCurrentRole", "YearsSinceLastPromotion", "YearsWithCurrManager")) <- c("Age (years)", "Business Travel", "Daily Rate (salary per day)", "Distance From Home (1-29)", "Education Field", "Employee ID", "Environment Satisfaction", "Hourly Rate (salary per hour)", "Job Involvement", "Job Level (internal company hierachy 1-5)", "Job Role", "Job Satisfaction", "Marital Status", "Monthly Income", "Monthly Rate (salary per month)", "Number of Companies worked before starting this position", "has done over time", "% Salary Hike", "Performance Rating", "Relationship Satisfaction", "Stock Option Level (number of stocks an employee owns from 0-3)", "Total Working Years", "Number Of Trainings Done Last Year", "Work Life Balance", "Number Of Years At Company", "Number of Years In Current Role", "Number Of Years Since Last Promotion", "Number Of Years With Current Manager")
+```
+
+## Data Cleaning
+
+```{r data-cleaning}
+emp_attrition <- subset(emp_attrition, select = -c(EmployeeCount, StandardHours, Over18))
+```
+
+- EmployeeCount (represents the head count which is 1 for all employee, hence drop this)
+- StandardHours (StandardHours for all employee's is 80, therefore this data has a 9/80 work schedule. Hence, employees work 80 hours in 9 days. So not a standard as 5/42 as in switzerland, we drop this)
+- Over18 (all employee's are 18 or above and it's capured in age, hence drop this variable)
+
+## Missing Value Check
+```{r check-for-missing-values, echo = TRUE, results = FALSE}
+# Do we have any missing values?
+sapply(emp_attrition, function(x) all(is.na(x) | x == '' ))
+```
+There are no missing values in this dataset.
+
+\newpage
+## Overview of Dataset
+
+```{r Overview, echo = TRUE, results = TRUE}
+str(emp_attrition)
+```
+Interesting variables:
+
+- Attrition (yes/no)
+- Departement (3 levels)
+- DistanceFromHome(continous)
+- JobInvolvement (4 levels)
+- JobSatisfaction (4 levels)
+- Monthly income (continous)
+- NumCompaniesWorked (continous)
+- TrainingTimesLastYear (continous)
+- WorkLifeBalance (4 levels)
+- YearsAtCompany (continous) #might be used for LM model
+- YearWithCurrManager
+
+\newpage
+# Exploration
+
+
+\newpage
+
+# Linear Regression
+```{r Linear Regression}
+# All variables without log transformation
+lm.YearsAtCompany.0 <- lm(formula = YearsAtCompany ~ ., data = emp_attrition)
+lm.summary.0 <- summary(lm.YearsAtCompany.0)
+lm.summary.0
+
+#Histogram plotsloop
+emp_attrition_numerical_only <- emp_attrition[, c(1, 4, 6, 12, 18, 19, 20, 26,
+                                                  27, 29, 30, 31, 32)]
+names_numerical <- colnames(emp_attrition_numerical_only)
+
+for (i in 1:ncol(emp_attrition_numerical_only)) {
+  variable <- emp_attrition_numerical_only[, i]
+  hist(variable, breaks = 30, col = "blue", main = names_numerical[i])
+}
+
+# Log transformation of variables that should only have positive values (or 0)
+emp_attrition_log <- emp_attrition
+#emp_attrition_log["DailyRate"] <- log(emp_attrition_log["DailyRate"]) 
+emp_attrition_log["DistanceFromHome"] <- log(emp_attrition_log["DistanceFromHome"]) 
+#emp_attrition_log["HourlyRate"] <- log(emp_attrition_log["HourlyRate"])
+emp_attrition_log["MonthlyIncome"] <- log(emp_attrition_log["MonthlyIncome"])
+emp_attrition_log["YearsAtCompany"] <- log(emp_attrition_log["YearsAtCompany"])
+emp_attrition_log["NumCompaniesWorked"] <- log(emp_attrition_log["NumCompaniesWorked"])
+emp_attrition_log["TotalWorkingYears"] <- log(emp_attrition_log["TotalWorkingYears"])
+#emp_attrition_log["TrainingTimesLastYear"] <- log(emp_attrition_log["TrainingTimesLastYear"])
+emp_attrition_log["YearsInCurrentRole"] <- log(emp_attrition_log["YearsInCurrentRole"])
+emp_attrition_log["YearsSinceLastPromotion"] <- log(emp_attrition_log["YearsSinceLastPromotion"])
+emp_attrition_log["YearsWithCurrManager"] <- log(emp_attrition_log["YearsWithCurrManager"])
+
+
+# Na's / -Inf values check after log transformation # Back to 0
+sum(is.na(emp_attrition_log)) # 0
+sum(emp_attrition_log == "-Inf") #1340
+emp_attrition_log[emp_attrition_log == "-Inf"] <- 0
+emp_attrition_log[emp_attrition_log == "NaN"] <- 0
+
+
+# All variables with log transformation
+lm.YearsAtCompany.1 <- lm(formula = YearsAtCompany ~ ., data = emp_attrition_log)
+lm.summary.1 <- summary(lm.YearsAtCompany.1)
+lm.summary.1
+```
+Findings LM Models _log:
+- Variable Age, p-value slightly > 0.05 - but is kept
+- Differences between Departements / Roles / Education etc. might be analysed in detail (different significance levels)
+- For next model only general variables with p-value > 0.05 are kept, excluding 
+variables with factor levels where not all levels are significant. 
+- Adjusted R-squared:  0.7861 without log transformation / with log transformation 0.85  
+
+Findings Histograms:
+- Variables that show right skeewedness are log transformed. 
+
+# Residual analysis LM Models
+
+```{r}
+# Without log transformation
+# get list of residuals
+lm.YearsAtCompany.0_residuals <- resid(lm.YearsAtCompany.0)
+
+#produce residual vs. fitted plot
+plot(fitted(lm.YearsAtCompany.0), lm.YearsAtCompany.0_residuals)
+abline(0,0) #add a horizontal line at 0 
+
+#create Q-Q plot for residuals
+qqnorm(lm.YearsAtCompany.0_residuals)
+qqline(lm.YearsAtCompany.0_residuals)#add a straight diagonal line to the plot
+ 
+#Create density plot of residuals
+plot(density(lm.YearsAtCompany.0_residuals))
+
+
+# With log transformation
+# get list of residuals
+lm.YearsAtCompany.1_residuals <- resid(lm.YearsAtCompany.1)
+
+#produce residual vs. fitted plot
+plot(fitted(lm.YearsAtCompany.1), lm.YearsAtCompany.1_residuals)
+abline(0,0) #add a horizontal line at 0 
+
+#create Q-Q plot for residuals
+qqnorm(lm.YearsAtCompany.1_residuals)
+qqline(lm.YearsAtCompany.1_residuals)#add a straight diagonal line to the plot
+ 
+#Create density plot of residuals
+plot(density(lm.YearsAtCompany.1_residuals))
+```
+Without log transformation:
+-  Resiudals vs. fitted plot: The spread of residuals seems to be higher for higher fitted values. 
+Therefore, the normal distributions should be further verified. 
+- QQ-Plot: The strayed residuals around the tails indicate that they might not 
+be normally distributed.
+- Density plot: As the residuals are mainly bell shaped, only displaying long
+tails, the normal distribution will still be assumed. Nevertheless, additional
+models will be fitted going forward.
+
+With log transformation:
+- Resiudals vs. fitted plot: The spread of residuals was reduced compared to the 
+model without log transformation.
+- QQ-Plot: In this plot the residuals seem better distributed but still strayed
+around higher values.
+- Density plot: The bell shape is still given, with less long tails. 
+
+
+```{r Linear Regression selection}
+# Significant variables, excluding variables where not all factor levels are 
+# significant for simplicity
+lm.YearsAtCompany.2 <- lm(YearsAtCompany ~ 
+                            Age +
+                            NumCompaniesWorked +
+                            PercentSalaryHike +
+                            TotalWorkingYears +
+                            YearsInCurrentRole +
+                            YearsSinceLastPromotion +
+                            YearsWithCurrManager
+                            , data = emp_attrition_log)
+lm.summary.2 <- summary(lm.YearsAtCompany.2)
+lm.summary.2
+```
+Findings:
+- All variables display a p-value > 0.05. Adjusted R-squared:  0.8467 - only a 
+0.0033 difference to the previous model including all the variables. 
+Interpretation:
+- Intercept: YearsAtCompany if all other variables were 0. Given variables such 
+as Age, it is pointless to interpret the intercept in this model.  
+- Age: With an increase of 1 year of age, the dependent variable YearsAtCompany 
+decreases by 0.003173. Seems logical, if people e.g. are going to retire 1 year earlier?
+- NumCompaniesWorked: If the variable increases by 1, the YearsAtCompany decrease 
+by 0.159989. People who change employers a lot might stick with this pattern.
+- PercentSalaryHike: If the Salary is increased by 1%, the YearsAtCompany decrease
+by 0.007561. This seems controversial but is also a sign that the salary-system 
+maybe does not work ideal. 
+- TotalWorkingYears: If the TotalWorkingYears increase by 1, the YearsAtCompany
+increase by 0.312428.
+- YearsInCurrentRole: If the YearsInCurrentRole increase by 1, the YearsAtCompany
+increase by 0.453442.
+- YearsSinceLastPromotion: If the YearsSinceLastPromotion increase by 1,
+the YearsAtCompany increase by 0.044885. This might suggest that people who expect
+a promotion are willing to keep working at the company.
+- YearsWithCurrManager: If the YearsWithCurrManager increase by 1, the YearsAtCompany
+increase by 0.385965. This hints that employees like consitency in the managment.
+
+```{r}
+# Including variable with at least one significant factor level # Exclude?
+lm.YearsAtCompany.3 <- lm(YearsAtCompany ~ 
+                            Age +
+                            Education +
+                            EnvironmentSatisfaction + 
+                            JobRole +
+                            JobSatisfaction +
+                            NumCompaniesWorked +
+                            PercentSalaryHike +
+                            TotalWorkingYears +
+                            YearsInCurrentRole +
+                            YearsSinceLastPromotion +
+                            YearsWithCurrManager
+                            , data = emp_attrition_log)
+lm.summary.3 <- summary(lm.YearsAtCompany.3)
+lm.summary.3
+```
+
+## Generalised Linear Models
+
+\newpage
+# Conclusion
+
+\newpage
+# Session Information {-}
+
+```{r session-info}
+sessionInfo()
+```
+
+\newpage
+# References
+
