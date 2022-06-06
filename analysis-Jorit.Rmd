@@ -25,9 +25,10 @@ header-includes:
 - \fancyfoot[C]{}
 - \fancyfoot[R]{\thepage}
 ---
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, messages = FALSE)
-packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra", "mgcv")
+packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra", "mgcv", "caret", "vip", "rsample", "tidyverse", "yardstick", "arm", "pROC")
 package.check <- lapply(packages, FUN = function(x) {
     if (!require(x, character.only = TRUE)) {
         install.packages(x, dependencies = TRUE)
@@ -35,22 +36,26 @@ package.check <- lapply(packages, FUN = function(x) {
     }
 })
 ```
+
+```{=tex}
 \fancyhead[LR]{}
 \pagenumbering{roman}
-
+```
+```{=tex}
 \newpage
 \cleardoublepage
 \pagenumbering{arabic}
 \fancyhead[L]{Employee Attrition Model}
 \fancyhead[R]{Machine Learning I}
+```
 # Introduction
 
 Employees, according to @IBM_Developer_Challenge_2020, are the foundation of any business. Its success is largely determined by the quality of its employees and their ability to stay with the company. Organizations confront a number of issues as a result of staff attrition:
 
-1. Training new personnel is costly in terms of both money and time.
-2. Potential to lose experienced employees
-3. Productivity impact
-4. Profitability impact
+1.  Training new personnel is costly in terms of both money and time.
+2.  Potential to lose experienced employees
+3.  Productivity impact
+4.  Profitability impact
 
 Therefore, IBM data scientists created a fictitious data set as a challenge for data scientists. Among the data types are metrics such as education level, job satisfaction, and commute distance. The dataset can be found on the company's GitHub account [@IBM_Data_2019].
 
@@ -58,15 +63,18 @@ Therefore, IBM data scientists created a fictitious data set as a challenge for 
 
 The following topics are layed out through out this paper:
 
-1. Linear Models
-2. Extending the Linear Model: Non-linearity
-3. Extending the Linear Model: Generalised Linear Models
-4. Support Vector Machines
-5. Neural Networks
-6. Optimisation
+1.  Linear Models
+2.  Extending the Linear Model: Non-linearity (GAM)
+3.  Extending the Linear Model: Generalised Linear Models (GLM)
+- poisson as well as binominal
+4.  Support Vector Machines
+5.  Neural Networks
+6.  Optimisation
 
 \newpage
+
 # Data preparation
+
 ```{r import-data, echo = FALSE, results = FALSE}
 emp_attrition <- read.csv("./data/emp_attrition.csv")
 head(emp_attrition)
@@ -75,6 +83,7 @@ head(emp_attrition)
 ## Data Transformation and Sanity Check
 
 The code for this part is left out from the PDF due to its length...
+
 ```{r formatting-data, echo = FALSE, results = FALSE}
 # Age
 summary(emp_attrition$Age)
@@ -215,23 +224,25 @@ labels(emp_attrition, which = c("Age", "BusinessTravel", "DailyRate", "DistanceF
 ## Data Cleaning
 
 ```{r data-cleaning}
-emp_attrition <- emp_attrition %>% select (-c(EmployeeCount, StandardHours, Over18))
+emp_attrition <- emp_attrition %>% dplyr::select(-c(EmployeeCount, StandardHours, Over18))
 ```
 
-- EmployeeCount (represents the head count which is 1 for all employee, hence drop this)
-- StandardHours (StandardHours for all employee's is 80, therefore this data has a 9/80 work schedule. Hence, employees work 80 hours in 9 days. So not a standard as 5/42 as in switzerland, we drop this)
-- Over18 (all employee's are 18 or above and it's capured in age, hence drop this variable)
+-   EmployeeCount (represents the head count which is 1 for all employee, hence drop this)
+-   StandardHours (StandardHours for all employee's is 80, therefore this data has a 9/80 work schedule. Hence, employees work 80 hours in 9 days. So not a standard as 5/42 as in switzerland, we drop this)
+-   Over18 (all employee's are 18 or above and it's capured in age, hence drop this variable)
 
 ## Missing Value Check
+
 ```{r check-for-missing-values, echo = TRUE, results = FALSE}
 # Do we have any missing values?
 sapply(emp_attrition, function(x) all(is.na(x) | x == '' ))
 ```
+
 There are no missing values in this dataset.
 
 \newpage
-## Overview of Dataset
 
+## Overview of Dataset
 
 ```{r numeric-variable-table, echo = FALSE, message = FALSE, results='asis'}
 kable(summarize(emp_attrition, type = "numeric"), 
@@ -247,488 +258,443 @@ kable(list(summary.factors[1:33,], summary.factors[34:66,]),
 ```
 
 \newpage
+
 # Exploration
 
 \newpage
+
 # Linear Regression
-```{r}
-lm.emp_attrition <- lm(as.numeric(Attrition) ~ . , data = emp_attrition)
-
-lm.summary <- summary(lm.emp_attrition)
-lm.drop1 <- drop1(lm.emp_attrition, test = "F")
-```
-
-```{r significant-variable-table, echo = FALSE, message = FALSE, results='asis'}
-significance.table <- cbind(c("Age", "BusinessTravel", "DistanceFromHome", "EducationField", "EnvironmentSatisfaction", "JobInvolvement", "JobLevel", "JobRole", "JobSatisfaction", "NumCompaniesWorked", "OverTime", "RelationshipSatisfaction", "StockOptionLevel", "TrainingTimesLastYear", "WorkLifeBalance", "YearsAtCompany", "YearsInCurrentRole", "YearsSinceLastPromotion", "YearsWithCurrManager"))
-colnames(significance.table) <- c("Drop1")
-significance.table <- as.data.frame(significance.table)
-
-lm.drop1.pr <- c()
-for (name in significance.table$Drop1) {
-  lm.drop1.pr[length(lm.drop1.pr) + 1] <- lm.drop1[name,]$`Pr(>F)`
-}
-significance.table <- cbind(significance.table, lm.drop1.pr, c("Age", "BusinessTravel", "DistanceFromHome", "EnvironmentSatisfaction", "JobSatisfaction", "NumCompaniesWorked", "OverTime", "RelationshipSatisfaction", "StockOptionLevel", "WorkLifeBalance", "YearsInCurrentRole", "YearsSinceLastPromotion", "YearsWithCurrManager", NA, NA, NA, NA, NA, NA))
-significance.table <- as.data.frame(significance.table)
-colnames(significance.table) <- c("Drop1", "Pr(>|t|)", "Summary")
-
-kable(significance.table, 
-      caption = "Summary Significant Variables", format = "latex", booktabs = TRUE) %>%
-  kable_styling(latex_options = "hold_position")
-```
-
-
-These are the dependent variables which are significant or weakly significant in Drop1, but not in the Summary statistics.
-
-```{r}
-significance.table$Drop1[!(significance.table$Drop1 %in% significance.table$Summary)]
-```
-
-TODO: Check this?
-
-```{r}
-lm.attrition <- lm(as.numeric(Attrition) ~ Age + BusinessTravel + DistanceFromHome + 
-                     EducationField + EnvironmentSatisfaction + JobInvolvement + 
-                     JobLevel + JobRole + JobSatisfaction + NumCompaniesWorked + 
-                     OverTime + RelationshipSatisfaction + StockOptionLevel + 
-                     TrainingTimesLastYear + WorkLifeBalance + YearsAtCompany + 
-                     YearsInCurrentRole + YearsSinceLastPromotion + 
-                     YearsWithCurrManager, data = emp_attrition)
-```
-
-A first simple linear regression model with and $R^2$ around 30%. However, it doesn't really make sense to use this model with Attrition being True or False.
-
-
-\newpage
-## Model Development (Interactions)
-```{r significant-interaction-process, echo = FALSE, results = FALSE, message = FALSE, eval = FALSE}
-
-# Age
-lm.attrition.interactions.age <- update(lm.attrition, . ~ . + 
-                                          Age:BusinessTravel + 
-                                          Age:DistanceFromHome +
-                                          Age:EducationField + 
-                                          Age:EnvironmentSatisfaction + 
-                                          Age:JobInvolvement +
-                                          Age:JobLevel +
-                                          Age:JobRole +
-                                          Age:JobSatisfaction +
-                                          Age:NumCompaniesWorked +
-                                          Age:OverTime +
-                                          Age:RelationshipSatisfaction +
-                                          Age:StockOptionLevel +
-                                          Age:TrainingTimesLastYear +
-                                          Age:WorkLifeBalance +
-                                          Age:YearsAtCompany +
-                                          Age:YearsInCurrentRole +
-                                          Age:YearsSinceLastPromotion +
-                                          Age:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.age, test = "F")
-
-lm.attrition.interactions <- update(lm.attrition, . ~ . + Age:JobSatisfaction + 
-                                      Age:OverTime + Age:StockOptionLevel)
-
-# BusinessTravel
-lm.attrition.interactions.BusinessTravel <- update(lm.attrition.interactions, . ~ . + 
-                                          BusinessTravel:DistanceFromHome +
-                                          BusinessTravel:EducationField + 
-                                          BusinessTravel:EnvironmentSatisfaction + 
-                                          BusinessTravel:JobInvolvement +
-                                          BusinessTravel:JobLevel +
-                                          BusinessTravel:JobRole +
-                                          BusinessTravel:JobSatisfaction +
-                                          BusinessTravel:NumCompaniesWorked +
-                                          BusinessTravel:OverTime +
-                                          BusinessTravel:RelationshipSatisfaction +
-                                          BusinessTravel:StockOptionLevel +
-                                          BusinessTravel:TrainingTimesLastYear +
-                                          BusinessTravel:WorkLifeBalance +
-                                          BusinessTravel:YearsAtCompany +
-                                          BusinessTravel:YearsInCurrentRole +
-                                          BusinessTravel:YearsSinceLastPromotion +
-                                          BusinessTravel:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.BusinessTravel, test = "F")
-
-lm.attrition.interactions <- update(lm.attrition.interactions, . ~ . + 
-                                      BusinessTravel:JobSatisfaction + 
-                                      BusinessTravel:YearsAtCompany)
-
-# DistanceFromHome
-lm.attrition.interactions.DistanceFromHome <- update(lm.attrition.interactions, . ~ . + 
-                                          DistanceFromHome:EducationField + 
-                                          DistanceFromHome:EnvironmentSatisfaction + 
-                                          DistanceFromHome:JobInvolvement +
-                                          DistanceFromHome:JobLevel +
-                                          DistanceFromHome:JobRole +
-                                          DistanceFromHome:JobSatisfaction +
-                                          DistanceFromHome:NumCompaniesWorked +
-                                          DistanceFromHome:OverTime +
-                                          DistanceFromHome:RelationshipSatisfaction +
-                                          DistanceFromHome:StockOptionLevel +
-                                          DistanceFromHome:TrainingTimesLastYear +
-                                          DistanceFromHome:WorkLifeBalance +
-                                          DistanceFromHome:YearsAtCompany +
-                                          DistanceFromHome:YearsInCurrentRole +
-                                          DistanceFromHome:YearsSinceLastPromotion +
-                                          DistanceFromHome:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.DistanceFromHome, test = "F")
-
-lm.attrition.interactions <- update(lm.attrition.interactions, . ~ . + 
-                                      DistanceFromHome:OverTime)
-
-# EducationField
-lm.attrition.interactions.EducationField <- update(lm.attrition.interactions, . ~ . + 
-                                          EducationField:EnvironmentSatisfaction + 
-                                          EducationField:JobInvolvement +
-                                          EducationField:JobLevel +
-                                          EducationField:JobRole +
-                                          EducationField:JobSatisfaction +
-                                          EducationField:NumCompaniesWorked +
-                                          EducationField:OverTime +
-                                          EducationField:RelationshipSatisfaction +
-                                          EducationField:StockOptionLevel +
-                                          EducationField:TrainingTimesLastYear +
-                                          EducationField:WorkLifeBalance +
-                                          EducationField:YearsAtCompany +
-                                          EducationField:YearsInCurrentRole +
-                                          EducationField:YearsSinceLastPromotion +
-                                          EducationField:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.EducationField, test = "F")
-
-lm.attrition.interactions <- update(lm.attrition.interactions, . ~ . + 
-                                      EducationField:JobSatisfaction)
-
-# EnvironmentSatisfaction
-lm.attrition.interactions.EnvironmentSatisfaction <- update(lm.attrition.interactions, . ~ . + 
-                                          EnvironmentSatisfaction:JobInvolvement +
-                                          EnvironmentSatisfaction:JobLevel +
-                                          EnvironmentSatisfaction:JobRole +
-                                          EnvironmentSatisfaction:JobSatisfaction +
-                                          EnvironmentSatisfaction:NumCompaniesWorked +
-                                          EnvironmentSatisfaction:OverTime +
-                                          EnvironmentSatisfaction:RelationshipSatisfaction +
-                                          EnvironmentSatisfaction:StockOptionLevel +
-                                          EnvironmentSatisfaction:TrainingTimesLastYear +
-                                          EnvironmentSatisfaction:WorkLifeBalance +
-                                          EnvironmentSatisfaction:YearsAtCompany +
-                                          EnvironmentSatisfaction:YearsInCurrentRole +
-                                          EnvironmentSatisfaction:YearsSinceLastPromotion +
-                                          EnvironmentSatisfaction:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.EnvironmentSatisfaction, test = "F")
-
-lm.attrition.interactions <- update(lm.attrition.interactions, . ~ . + 
-                                      EnvironmentSatisfaction:JobInvolvement +
-                                      EnvironmentSatisfaction:WorkLifeBalance)
-
-# JobInvolvement
-lm.attrition.interactions.JobInvolvement <- update(lm.attrition.interactions, . ~ . + 
-                                          JobInvolvement:JobLevel +
-                                          JobInvolvement:JobRole +
-                                          JobInvolvement:JobSatisfaction +
-                                          JobInvolvement:NumCompaniesWorked +
-                                          JobInvolvement:OverTime +
-                                          JobInvolvement:RelationshipSatisfaction +
-                                          JobInvolvement:StockOptionLevel +
-                                          JobInvolvement:TrainingTimesLastYear +
-                                          JobInvolvement:WorkLifeBalance +
-                                          JobInvolvement:YearsAtCompany +
-                                          JobInvolvement:YearsInCurrentRole +
-                                          JobInvolvement:YearsSinceLastPromotion +
-                                          JobInvolvement:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.JobInvolvement, test = "F")
-
-# JobLevel
-lm.attrition.interactions.JobLevel <- update(lm.attrition.interactions, . ~ . + 
-                                          JobLevel:JobRole +
-                                          JobLevel:JobSatisfaction +
-                                          JobLevel:NumCompaniesWorked +
-                                          JobLevel:OverTime +
-                                          JobLevel:RelationshipSatisfaction +
-                                          JobLevel:StockOptionLevel +
-                                          JobLevel:TrainingTimesLastYear +
-                                          JobLevel:WorkLifeBalance +
-                                          JobLevel:YearsAtCompany +
-                                          JobLevel:YearsInCurrentRole +
-                                          JobLevel:YearsSinceLastPromotion +
-                                          JobLevel:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.JobLevel, test = "F")
-
-lm.attrition.interactions <- update(lm.attrition.interactions, . ~ . + 
-                                      JobLevel:OverTime)
-
-# JobRole
-lm.attrition.interactions.JobRole <- update(lm.attrition.interactions, . ~ . + 
-                                          JobRole:JobSatisfaction +
-                                          JobRole:NumCompaniesWorked +
-                                          JobRole:OverTime +
-                                          JobRole:RelationshipSatisfaction +
-                                          JobRole:StockOptionLevel +
-                                          JobRole:TrainingTimesLastYear +
-                                          JobRole:WorkLifeBalance +
-                                          JobRole:YearsAtCompany +
-                                          JobRole:YearsInCurrentRole +
-                                          JobRole:YearsSinceLastPromotion +
-                                          JobRole:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.JobRole, test = "F")
-
-lm.attrition.interactions <- update(lm.attrition.interactions, . ~ . + 
-                                      JobRole:OverTime +
-                                      JobRole:RelationshipSatisfaction +
-                                      JobRole:WorkLifeBalance +
-                                      JobRole:YearsInCurrentRole)
-
-# JobSatisfaction
-lm.attrition.interactions.JobSatisfaction <- update(lm.attrition.interactions, . ~ . + 
-                                          JobSatisfaction:NumCompaniesWorked +
-                                          JobSatisfaction:OverTime +
-                                          JobSatisfaction:RelationshipSatisfaction +
-                                          JobSatisfaction:StockOptionLevel +
-                                          JobSatisfaction:TrainingTimesLastYear +
-                                          JobSatisfaction:WorkLifeBalance +
-                                          JobSatisfaction:YearsAtCompany +
-                                          JobSatisfaction:YearsInCurrentRole +
-                                          JobSatisfaction:YearsSinceLastPromotion +
-                                          JobSatisfaction:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.JobSatisfaction, test = "F")
-
-# NumCompaniesWorked
-lm.attrition.interactions.NumCompaniesWorked <- update(lm.attrition.interactions, . ~ . + 
-                                          NumCompaniesWorked:OverTime +
-                                          NumCompaniesWorked:RelationshipSatisfaction +
-                                          NumCompaniesWorked:StockOptionLevel +
-                                          NumCompaniesWorked:TrainingTimesLastYear +
-                                          NumCompaniesWorked:WorkLifeBalance +
-                                          NumCompaniesWorked:YearsAtCompany +
-                                          NumCompaniesWorked:YearsInCurrentRole +
-                                          NumCompaniesWorked:YearsSinceLastPromotion +
-                                          NumCompaniesWorked:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.NumCompaniesWorked, test = "F")
-
-lm.attrition.interactions <- update(lm.attrition.interactions, . ~ . + 
-                                      NumCompaniesWorked:OverTime +
-                                      NumCompaniesWorked:StockOptionLevel)
-
-# OverTime
-lm.attrition.interactions.OverTime <- update(lm.attrition.interactions, . ~ . + 
-                                          OverTime:RelationshipSatisfaction +
-                                          OverTime:StockOptionLevel +
-                                          OverTime:TrainingTimesLastYear +
-                                          OverTime:WorkLifeBalance +
-                                          OverTime:YearsAtCompany +
-                                          OverTime:YearsInCurrentRole +
-                                          OverTime:YearsSinceLastPromotion +
-                                          OverTime:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.OverTime, test = "F")
-
-lm.attrition.interactions <- update(lm.attrition.interactions, . ~ . + 
-                                      OverTime:RelationshipSatisfaction +
-                                      OverTime:StockOptionLevel)
-
-# RelationshipSatisfaction
-lm.attrition.interactions.RelationshipSatisfaction <- update(lm.attrition.interactions, . ~ . + 
-                                          RelationshipSatisfaction:StockOptionLevel +
-                                          RelationshipSatisfaction:TrainingTimesLastYear +
-                                          RelationshipSatisfaction:WorkLifeBalance +
-                                          RelationshipSatisfaction:YearsAtCompany +
-                                          RelationshipSatisfaction:YearsInCurrentRole +
-                                          RelationshipSatisfaction:YearsSinceLastPromotion +
-                                          RelationshipSatisfaction:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.RelationshipSatisfaction, test = "F")
-
-# StockOptionLevel
-lm.attrition.interactions.StockOptionLevel <- update(lm.attrition.interactions, . ~ . + 
-                                          StockOptionLevel:TrainingTimesLastYear +
-                                          StockOptionLevel:WorkLifeBalance +
-                                          StockOptionLevel:YearsAtCompany +
-                                          StockOptionLevel:YearsInCurrentRole +
-                                          StockOptionLevel:YearsSinceLastPromotion +
-                                          StockOptionLevel:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.StockOptionLevel, test = "F")
-
-lm.attrition.interactions <- update(lm.attrition.interactions, . ~ . + 
-                                      StockOptionLevel:YearsSinceLastPromotion)
-
-# StockOptionLevel
-lm.attrition.interactions.TrainingTimesLastYear <- update(lm.attrition.interactions, . ~ . + 
-                                          TrainingTimesLastYear:WorkLifeBalance +
-                                          TrainingTimesLastYear:YearsAtCompany +
-                                          TrainingTimesLastYear:YearsInCurrentRole +
-                                          TrainingTimesLastYear:YearsSinceLastPromotion +
-                                          TrainingTimesLastYear:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.TrainingTimesLastYear, test = "F")
-
-lm.attrition.interactions <- update(lm.attrition.interactions, . ~ . + 
-                                      TrainingTimesLastYear:YearsSinceLastPromotion)
-
-# WorkLifeBalance
-lm.attrition.interactions.WorkLifeBalance <- update(lm.attrition.interactions, . ~ . + 
-                                          WorkLifeBalance:YearsAtCompany +
-                                          WorkLifeBalance:YearsInCurrentRole +
-                                          WorkLifeBalance:YearsSinceLastPromotion +
-                                          WorkLifeBalance:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.WorkLifeBalance, test = "F")
-
-lm.attrition.interactions <- update(lm.attrition.interactions, . ~ . + 
-                                      WorkLifeBalance:YearsAtCompany +
-                                      WorkLifeBalance:YearsSinceLastPromotion +
-                                      WorkLifeBalance:YearsWithCurrManager)
-
-# YearsAtCompany
-lm.attrition.interactions.YearsAtCompany <- update(lm.attrition.interactions, . ~ . + 
-                                          YearsAtCompany:YearsInCurrentRole +
-                                          YearsAtCompany:YearsSinceLastPromotion +
-                                          YearsAtCompany:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.YearsAtCompany, test = "F")
-
-# YearsInCurrentRole
-lm.attrition.interactions.YearsInCurrentRole <- update(lm.attrition.interactions, . ~ . + 
-                                          YearsInCurrentRole:YearsSinceLastPromotion +
-                                          YearsInCurrentRole:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.YearsInCurrentRole, test = "F")
-
-# YearsSinceLastPromotion
-lm.attrition.interactions.YearsSinceLastPromotion <- update(lm.attrition.interactions, . ~ . + 
-                                          YearsSinceLastPromotion:YearsWithCurrManager) 
-drop1(lm.attrition.interactions.YearsSinceLastPromotion, test = "F")
-
-
-# CleanUp
-lm.attrition.interactions <- update(lm.attrition.interactions, . ~ . - 
-                                      Age:OverTime -
-                                      BusinessTravel:JobSatisfaction - 
-                                      EducationField:JobSatisfaction - 
-                                      JobRole:RelationshipSatisfaction -
-                                      StockOptionLevel:YearsSinceLastPromotion -
-                                      TrainingTimesLastYear:YearsSinceLastPromotion -
-                                      JobRole:YearsInCurrentRole -
-                                      WorkLifeBalance:YearsAtCompany -
-                                      WorkLifeBalance:YearsWithCurrManager)
-drop1(lm.attrition.interactions, test="F")
-
-```
-
-```{r significant-interactions, echo = TRUE, results = FALSE, message = FALSE}
-lm.attrition.interactions <- lm(as.numeric(Attrition) ~ Age + BusinessTravel + 
-    DistanceFromHome + EducationField + EnvironmentSatisfaction + JobInvolvement + 
-    JobLevel + JobRole + JobSatisfaction + NumCompaniesWorked + OverTime + 
-    RelationshipSatisfaction + StockOptionLevel + TrainingTimesLastYear + 
-    WorkLifeBalance + YearsAtCompany + YearsInCurrentRole + YearsSinceLastPromotion + 
-    YearsWithCurrManager + 
-    Age:JobSatisfaction + Age:StockOptionLevel + BusinessTravel:YearsAtCompany + 
-    DistanceFromHome:OverTime + EnvironmentSatisfaction:JobInvolvement + 
-    EnvironmentSatisfaction:WorkLifeBalance + JobLevel:OverTime + 
-    JobRole:OverTime + JobRole:WorkLifeBalance + NumCompaniesWorked:OverTime + 
-    NumCompaniesWorked:StockOptionLevel + OverTime:RelationshipSatisfaction + 
-    OverTime:StockOptionLevel + WorkLifeBalance:YearsSinceLastPromotion, 
-    data = emp_attrition)
-
-drop1(lm.attrition.interactions, test="F")
-```
-
 
 # Extending the Linear Model
 
 ## Generalised Linear Models
-```{r generalised-additive-model}
-glm.attrition <- glm(Attrition ~ Age + BusinessTravel + 
-    DistanceFromHome + EducationField + EnvironmentSatisfaction + JobInvolvement + 
-    JobLevel + JobRole + JobSatisfaction + NumCompaniesWorked + OverTime + 
-    RelationshipSatisfaction + StockOptionLevel + TrainingTimesLastYear + 
-    WorkLifeBalance + YearsAtCompany + YearsInCurrentRole + YearsSinceLastPromotion + 
-    YearsWithCurrManager + 
-    Age:JobSatisfaction + Age:StockOptionLevel + BusinessTravel:YearsAtCompany + 
-    DistanceFromHome:OverTime + EnvironmentSatisfaction:JobInvolvement + 
-    EnvironmentSatisfaction:WorkLifeBalance + JobLevel:OverTime + 
-    JobRole:OverTime + JobRole:WorkLifeBalance + NumCompaniesWorked:OverTime + 
-    NumCompaniesWorked:StockOptionLevel + OverTime:RelationshipSatisfaction + 
-    OverTime:StockOptionLevel + WorkLifeBalance:YearsSinceLastPromotion, 
-    data = emp_attrition, family = binomial)
 
-#confint(glm.attrition, level = 0.95)
-#summary(glm.attrition)
-#drop1(glm.attrition, test = "F")
+### Simple Logistic Regression
+
+```{r}
+attrition_model1 <- glm(Attrition ~ OverTime, family = "binomial", data = emp_attrition)
+summary(attrition_model1)
 ```
+Not unexpectedly overtime seems to play a relevant role. Indeed, its p-value is highly significant.
 
-### Age
-
-```{r glm-plots-age, fig.show='hold', out.width = "33%", warning=FALSE, message=FALSE, echo = FALSE }
-ggplot(emp_attrition, aes(Age, glm.attrition$fitted.values)) +
-  geom_point(alpha = 0.15) +
-  geom_smooth(method = "gam", method.args = list(family = "quasibinomial")) +
-  labs(title="Attrition ~ Age", x="Age", y="Probability of Attrition")
-
-ggplot(emp_attrition, aes(Age, glm.attrition$fitted.values, color = JobSatisfaction)) +
-  geom_point(alpha = 0.15) +
-  geom_smooth(method = "gam", method.args = list(family = "quasibinomial")) +
-  labs(title="Attrition ~ Age", x="Age", y="Probability of Attrition", color="Job Satisfaction")
-
-ggplot(emp_attrition, aes(Age, glm.attrition$fitted.values, color = StockOptionLevel)) +
-  geom_point(alpha = 0.15) +
-  geom_smooth(method = "gam", method.args = list(family = "quasibinomial")) +
-  labs(title="Attrition ~ Age", x="Age", y="Probability of Attrition", color="Stock Option Level")
-```
-
-### Business Travel
-
-```{r glm-plots-businessTravel, fig.show='hold', out.width = "50%", warning=FALSE, message=FALSE, echo = FALSE }
-ggplot(emp_attrition, aes(BusinessTravel, glm.attrition$fitted.values, color = BusinessTravel)) +
+```{r, out.width = "50%"}
+ggplot(emp_attrition, aes(OverTime, attrition_model1$fitted.values, color = OverTime)) +
   geom_boxplot(show.legend = FALSE) +
   geom_rug(sides = "b", position = "jitter", alpha = 0.2, show.legend = FALSE) +
-  labs(title="Attrition ~ Business Travel", x="Business Travel", y="Probability of Attrition")
-
-ggplot(emp_attrition, aes(YearsAtCompany, glm.attrition$fitted.values, color = BusinessTravel)) +
-  geom_boxplot(show.legend = FALSE) +
-  facet_wrap(~BusinessTravel) +
-  labs(title="Attrition ~ Business Travel", x="Years At Company", y="Probability of Attrition")
+  labs(title="Attrition ~ OverTime", x="OverTime", y="Probability of Attrition")
 ```
 
-### Distance From Home
-
-```{r glm-plots-distanceFromHome, fig.show='hold', out.width = "50%", warning=FALSE, message=FALSE, echo = FALSE }
-ggplot(emp_attrition, aes(DistanceFromHome, glm.attrition$fitted.values)) +
-  geom_point(alpha = 0.15) +
-  geom_smooth(method = "gam", method.args = list(family = "quasibinomial")) +
-  labs(title="Attrition ~ DistanceFromHome", x="Distance From Home", y="Probability of Attrition")
-
-ggplot(emp_attrition, aes(DistanceFromHome, glm.attrition$fitted.values, color = OverTime)) +
-  geom_point(alpha = 0.15) +
-  geom_smooth(method = "gam", method.args = list(family = "quasibinomial")) +
-  labs(title="Attrition ~ DistanceFromHome", x="Distance From Home", y="Probability of Attrition", color="Over Time")
+```{r}
+exp(coef(attrition_model1)["OverTimeYes"])
 ```
 
-### Education Field
+The odds of someone leaving the company with overtime are about ~3.8 times higher than the odds for no overtime.
+Now, this seems quite important!
 
-```{r glm-plots-educationField, fig.show='hold', out.width = "50%", warning=FALSE, message=FALSE, echo = FALSE}
-ggplot(emp_attrition, aes(EducationField, glm.attrition$fitted.values, color = EducationField)) +
-  geom_boxplot(show.legend = FALSE) +
-  geom_rug(sides = "b", position = "jitter", alpha = 0.2, show.legend = FALSE) +
-  labs(title="Attrition ~ Education Field", x="Education Field", y="Probability of Attrition")
+
+
+### Best Model
+
+```{r}
+prop.table(table(emp_attrition$Attrition))
 ```
 
-### Environment Satisfaction
+There is significant class imbalance in the variable Attrition, which makes sense since most employees want to work at the company not quite working there.
+However it is important to stratify the train and test split so that we receive a more realist estimate on how our model is going to perform.
 
-```{r glm-plots-EnvironmentSatisfaction, fig.show='hold', out.width = "50%", warning=FALSE, message=FALSE, echo = FALSE}
-ggplot(emp_attrition, aes(EnvironmentSatisfaction, glm.attrition$fitted.values, color = EnvironmentSatisfaction)) +
-  geom_boxplot(show.legend = FALSE) +
-  geom_rug(sides = "b", position = "jitter", alpha = 0.2, show.legend = FALSE) +
-  labs(title="Attrition ~ Environment Satisfaction", x="Environment Satisfaction", y="Probability of Attrition")
+```{r, echo=TRUE, message=FALSE, warning=FALSE }
+# Create training (80%) and test (20%)
+set.seed(111)
+emp_attrition_split <- initial_split(emp_attrition, prop = 0.80, strata = "Attrition")
 
-ggplot(emp_attrition, aes(EnvironmentSatisfaction, glm.attrition$fitted.values, color = JobInvolvement)) +
-  geom_boxplot(show.legend = TRUE) +
-  labs(title="Attrition ~ Environment Satisfaction", x="Environment Satisfaction", y="Probability of Attrition", color="Job Involvement")
-
-# EnvironmentSatisfaction:WorkLifeBalance
+emp_attrition_train <- training(emp_attrition_split)
+# count(emp_attrition_train %>% filter(emp_attrition_train$Attrition == "Yes")) # 189
+# count(emp_attrition_train %>% filter(emp_attrition_train$Attrition == "No")) # 986
+# i.e. 986 / 189 = 5.22
+emp_attrition_test  <- testing(emp_attrition_split)
+# count(emp_attrition_test %>% filter(emp_attrition_test$Attrition == "Yes")) # 48
+# count(emp_attrition_test %>% filter(emp_attrition_test$Attrition == "No")) # 248
+# i.e. 248 / 48 = 5.17
 ```
+
+As can be observed above we have an almost equal ratio of yes to no in the training as well as the testing data set due to stratification.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE }
+glm.model <- glm(Attrition ~ ., family = "binomial", data = emp_attrition_train)
+vip(glm.model, num_features = 30)
+```
+
+In the above plot we can observe the most important variables (Variable Importance) to predict employment attrition according to the absolute value of the t-statistic. We observe that OverTime seems to be highly correlated with Attrition in this data set. Moreover, EnviromentSatisfaction and JobSatisfaction seem to also be critical, which would make sense since we are talking about employment attrititon.
+
+```{r}
+glm.model.2 <- glm(Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + 
+                     JobSatisfaction + BusinessTravel + DistanceFromHome + 
+                     OverTime + WorkLifeBalance + Age + YearsWithCurrManager + 
+                     YearsSinceLastPromotion, 
+                   family = "binomial", data = emp_attrition_train)
+summary(glm.model.2)
+vip(glm.model.2, num_features = 30)
+```
+
+Based on the previous EDA and the conclusions of the linear model we may also fit a simpler model.
+By reducing the number of predictors we also get a different variable importance score.
+However, Age seems to have ranked a lot higher than before and overtime is still seems to show a large main effect.
+Therefore, we should check the interaction of these as well.
+
+```{r}
+glm.model.2 <- glm(Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + 
+                     JobSatisfaction + BusinessTravel + DistanceFromHome + 
+                     WorkLifeBalance + YearsWithCurrManager + 
+                     YearsSinceLastPromotion + Age + OverTime, 
+                   family = "binomial", data = emp_attrition_train)
+summary(glm.model.2)
+vip(glm.model.2, num_features = 30)
+```
+
+### Model Development
+
+```{r, echo=FALSE, results=FALSE}
+glm.model.2 <- glm(Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + 
+                     JobSatisfaction + BusinessTravel + DistanceFromHome + 
+                     WorkLifeBalance + YearsWithCurrManager + 
+                     YearsSinceLastPromotion + Age + OverTime +
+                     # interactions of Age
+                     Age:EnvironmentSatisfaction +
+                     Age:NumCompaniesWorked +
+                     Age:JobSatisfaction +
+                     Age:BusinessTravel +
+                     Age:DistanceFromHome +
+                     Age:WorkLifeBalance +
+                     Age:YearsWithCurrManager +
+                     Age:YearsSinceLastPromotion +
+                     Age:OverTime, 
+                   family = "binomial", data = emp_attrition_train)
+
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ . - EnvironmentSatisfaction:Age - NumCompaniesWorked:Age - DistanceFromHome:Age - WorkLifeBalance:Age - YearsSinceLastPromotion:Age)
+
+glm.model.2 <- update(glm.model.2, . ~ . + OverTime:EnvironmentSatisfaction +
+                     OverTime:NumCompaniesWorked +
+                     OverTime:JobSatisfaction +
+                     OverTime:BusinessTravel +
+                     OverTime:DistanceFromHome +
+                     OverTime:WorkLifeBalance +
+                     OverTime:YearsWithCurrManager +
+                     OverTime:YearsSinceLastPromotion)
+
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ . - OverTime:EnvironmentSatisfaction
+                     - OverTime:NumCompaniesWorked
+                     - OverTime:JobSatisfaction
+                     - OverTime:BusinessTravel
+                     - OverTime:DistanceFromHome
+                     - OverTime:WorkLifeBalance
+                     - OverTime:YearsWithCurrManager
+                     - OverTime:YearsSinceLastPromotion
+                     - OverTime:Age
+                     - BusinessTravel:Age)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + EnvironmentSatisfaction:NumCompaniesWorked
+                     + EnvironmentSatisfaction:JobSatisfaction
+                     + EnvironmentSatisfaction:BusinessTravel
+                     + EnvironmentSatisfaction:DistanceFromHome
+                     + EnvironmentSatisfaction:WorkLifeBalance
+                     + EnvironmentSatisfaction:YearsWithCurrManager
+                     + EnvironmentSatisfaction:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - EnvironmentSatisfaction:NumCompaniesWorked
+                     - EnvironmentSatisfaction:JobSatisfaction
+                     - EnvironmentSatisfaction:BusinessTravel
+                     - EnvironmentSatisfaction:DistanceFromHome
+                     - EnvironmentSatisfaction:WorkLifeBalance
+                     - EnvironmentSatisfaction:YearsWithCurrManager
+                     - EnvironmentSatisfaction:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + NumCompaniesWorked:NumCompaniesWorked
+                     + NumCompaniesWorked:JobSatisfaction
+                     + NumCompaniesWorked:BusinessTravel
+                     + NumCompaniesWorked:DistanceFromHome
+                     + NumCompaniesWorked:WorkLifeBalance
+                     + NumCompaniesWorked:YearsWithCurrManager
+                     + NumCompaniesWorked:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - NumCompaniesWorked:NumCompaniesWorked
+                     - NumCompaniesWorked:JobSatisfaction
+                     - NumCompaniesWorked:BusinessTravel
+                     - NumCompaniesWorked:DistanceFromHome
+                     - NumCompaniesWorked:WorkLifeBalance
+                     - NumCompaniesWorked:YearsWithCurrManager
+                     - NumCompaniesWorked:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + JobSatisfaction:NumCompaniesWorked
+                     + JobSatisfaction:JobSatisfaction
+                     + JobSatisfaction:BusinessTravel
+                     + JobSatisfaction:DistanceFromHome
+                     + JobSatisfaction:WorkLifeBalance
+                     + JobSatisfaction:YearsWithCurrManager
+                     + JobSatisfaction:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - JobSatisfaction:BusinessTravel
+                     - JobSatisfaction:DistanceFromHome
+                     - JobSatisfaction:YearsWithCurrManager
+                     - JobSatisfaction:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + BusinessTravel:NumCompaniesWorked
+                     + BusinessTravel:JobSatisfaction
+                     + BusinessTravel:DistanceFromHome
+                     + BusinessTravel:WorkLifeBalance
+                     + BusinessTravel:YearsWithCurrManager
+                     + BusinessTravel:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - BusinessTravel:NumCompaniesWorked
+                     - BusinessTravel:DistanceFromHome
+                     - BusinessTravel:WorkLifeBalance
+                     - BusinessTravel:YearsWithCurrManager
+                     - BusinessTravel:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + DistanceFromHome:NumCompaniesWorked
+                     + DistanceFromHome:JobSatisfaction
+                     + DistanceFromHome:BusinessTravel
+                     + DistanceFromHome:WorkLifeBalance
+                     + DistanceFromHome:YearsWithCurrManager
+                     + DistanceFromHome:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - DistanceFromHome:NumCompaniesWorked
+                     - DistanceFromHome:JobSatisfaction
+                     - DistanceFromHome:BusinessTravel
+                     - DistanceFromHome:WorkLifeBalance
+                     - DistanceFromHome:YearsWithCurrManager
+                     - DistanceFromHome:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + WorkLifeBalance:NumCompaniesWorked
+                     + WorkLifeBalance:JobSatisfaction
+                     + WorkLifeBalance:BusinessTravel
+                     + WorkLifeBalance:YearsWithCurrManager
+                     + WorkLifeBalance:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - WorkLifeBalance:NumCompaniesWorked
+                     - WorkLifeBalance:BusinessTravel
+                     - WorkLifeBalance:YearsWithCurrManager
+                     - WorkLifeBalance:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + YearsWithCurrManager:NumCompaniesWorked
+                     + YearsWithCurrManager:JobSatisfaction
+                     + YearsWithCurrManager:BusinessTravel
+                     + YearsWithCurrManager:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - YearsWithCurrManager:NumCompaniesWorked
+                     - YearsWithCurrManager:JobSatisfaction
+                     - YearsWithCurrManager:BusinessTravel)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + YearsSinceLastPromotion:NumCompaniesWorked
+                     + YearsSinceLastPromotion:JobSatisfaction
+                     + YearsSinceLastPromotion:BusinessTravel
+                     + YearsSinceLastPromotion:DistanceFromHome
+                     + YearsSinceLastPromotion:WorkLifeBalance
+                     + YearsSinceLastPromotion:YearsWithCurrManager)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - YearsSinceLastPromotion:NumCompaniesWorked
+                     - YearsSinceLastPromotion:JobSatisfaction
+                     - YearsSinceLastPromotion:BusinessTravel
+                     - YearsSinceLastPromotion:DistanceFromHome
+                     - YearsSinceLastPromotion:WorkLifeBalance
+                     - YearsSinceLastPromotion:YearsWithCurrManager)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ . - Age:YearsWithCurrManager)
+drop1(glm.model.2, test = "F")
+```
+By using the drop1 function we have added and remove significant interactions.
+Finally we end up with significant interaction inclusion of JobSatifaction with Age, Number of Comapnies Worked for, Work Life Balance and Business Travel Frequency.
+
+
+### Confusion Matrix
+
+```{r confusion-matrix, echo=FALSE, message=FALSE, warning=FALSE, out.width = "33%"}
+set.seed(123)
+cv_glm.model <- train(
+  Attrition ~ ., 
+  data = emp_attrition_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10) # 10 fold cross validation
+)
+
+emp_attrition_results <- emp_attrition_test %>%
+        mutate(`Logistic regression` = predict(cv_glm.model, emp_attrition_test))
+
+# confusion matrix
+conf_mat(emp_attrition_results, truth = Attrition, estimate = `Logistic regression`) %>% 
+  autoplot(type = "heatmap")
+
+cv_glm.model.2 <- train(
+  Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
+    BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
+    PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
+    YearsSinceLastPromotion, 
+  data = emp_attrition_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10) # 10 fold cross validation
+)
+
+emp_attrition_results.2 <- emp_attrition_test %>%
+        mutate(`Logistic regression` = predict(cv_glm.model.2, emp_attrition_test))
+
+# confusion matrix
+conf_mat(emp_attrition_results.2, truth = Attrition, estimate = `Logistic regression`) %>% 
+  autoplot(type = "heatmap")
+
+cv_glm.model.3 <- train(
+  Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
+    BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
+    PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
+    YearsSinceLastPromotion + 
+    JobSatisfaction:Age + JobSatisfaction:NumCompaniesWorked + 
+    JobSatisfaction:WorkLifeBalance + JobSatisfaction:BusinessTravel, 
+  data = emp_attrition_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10) # 10 fold cross validation
+)
+
+emp_attrition_results.3 <- emp_attrition_test %>%
+        mutate(`Logistic regression` = predict(cv_glm.model.3, emp_attrition_test))
+
+# confusion matrix
+conf_mat(emp_attrition_results.3, truth = Attrition, estimate = `Logistic regression`) %>% 
+  autoplot(type = "heatmap")
+```
+**Interpretation**
+
+1. When looking at the first plot using cross validation & including all predictors we get the following scores.
+
+**Specificity** = True Negatives / (True Negatives + False Positives)
+
+- i.e. 237 / (10 + 237) = 0.95
+- 95% of the people not leaving the company were correctly identified by the Logistic Regression model.
+
+
+**Sensitivity** = True Positives / (True Positives + False Negatives)
+
+- i.e. 19 / (29 + 19) = 0.4
+- 40% of the people leaving the company were correctly identified by the Logistic Regression model.
+
+2. Without interactions using a much simpler model we actually get a better specificity, but can only predict 23% of the people who are actually leaving the company. In other words the True Positive Rate which we are looking for is significantly worse.
+
+**Specificity** = 239 / (8 + 239) = 0.97
+- 97% of the people not leaving the company were correctly identified by the Logistic Regression model.
+
+**Sensitivity** = 11 / (37 + 11) = 0.23
+- 23% of the people leaving the company were correctly identified by the Logistic Regression model.
+
+3. When including the interactions we are able to predict the True Positive Rate a bit better however we sacrifice some of the specificity
+
+**Specificity** = 235 / (12 + 235) = 0.95
+- 95% of the people not leaving the company were correctly identified by the Logistic Regression model.
+
+**Sensitivity** = 12 / (36 + 12) = 0.25
+- 25% of the people leaving the company were correctly identified by the Logistic Regression model.
+
+
+```{r roc, echo=TRUE, message=FALSE, warning=FALSE, results='hide',fig.keep='all'}
+set.seed(123)
+cv_glm.probability <- predict(cv_glm.model, emp_attrition_train, type = "prob")$Yes
+roc.info <- roc(emp_attrition_train$Attrition, cv_glm.probability, legacy.axes=TRUE)
+roc.df <- data.frame(tpp=roc.info$sensitivities*100, 
+                     fpp=(1-roc.info$specificities)*100,
+                     thresholds=roc.info$thresholds)
+
+# determining the perfect cutoff
+# roc.df[roc.df$tpp > 78 & roc.df$tpp < 79, ]
+# emp_attrition_train_2 <- emp_attrition_train %>% mutate(prob = ifelse(Attrition == "Yes", 1, 0))
+# emp_attrition_train_2 <- broom::augment(glm.model, emp_attrition_train_2) %>% mutate(.fitted = exp(.fitted))
+# confusionMatrix(as.factor(ifelse(emp_attrition_train_2$.fitted >= .78, "Yes", "No")), emp_attrition_train_2$Attrition)$table
+
+# plotting ROC
+cv_glm.probability.3 <- predict(cv_glm.model.3, emp_attrition_train, type = "prob")$Yes
+par(pty = "s")
+roc(emp_attrition_train$Attrition, cv_glm.probability, plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", ylab="True Positive Percentage", col="blue", lwd=1, print.auc=TRUE)
+plot.roc(emp_attrition_train$Attrition, cv_glm.probability.3, percent=TRUE, col="#4daf4a", add=TRUE, print.auc=TRUE, print.auc.y=40)
+legend("bottomright", legend=c("All Predictors", "Model Development"), col = c("blue", "#4daf4a"), lwd=2)
+```
+
+### Cross Validation
+
+```{r}
+set.seed(123)
+cv_glm.model.3.pls <- train(
+  Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
+    BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
+    PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
+    YearsSinceLastPromotion + 
+    JobSatisfaction:Age + JobSatisfaction:NumCompaniesWorked + 
+    JobSatisfaction:WorkLifeBalance + JobSatisfaction:BusinessTravel, 
+  data = emp_attrition_train, 
+  method = "pls",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
+  preProcess = c("zv", "center", "scale"),
+  tuneLength = 16
+)
+cv_glm.model.3.pls
+# Model with lowest RMSE
+ggplot(cv_glm.model.3.pls)
+```
+
+
+As can be observed in the plot above the model with lowest Root Mean Square Error (RMSE)
+
+- 10 fold cross validaiton (90% of the data are used to train the model and 10% to test it).
+
+
 
 \newpage
+
 # Conclusion
 
 \newpage
-# Session Information {-}
+
+# Session Information {.unnumbered}
 
 ```{r session-info}
 sessionInfo()
 ```
 
 \newpage
-# References
 
+# References
