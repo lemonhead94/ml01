@@ -1,33 +1,34 @@
-# ---
-# output:
-#   bookdown::pdf_document2:
-#     includes:
-#       in_header: latex/preamble.tex
-#       before_body: latex/titlepage.tex
-#     pandoc_args:
-#     - --csl
-#     - references/apa.csl
-#   bookdown::html_document2:
-#     pandoc_args:
-#     - --csl
-#     - references/apa.csl
-#   bookdown::word_document2:
-#     pandoc_args:
-#     - --csl
-#     - references/apa.csl
-# toc-title: Table of Contents
-# bibliography: references/references.bib
-# link-citations: yes
-# header-includes:
-# - \usepackage{fancyhdr}
-# - \pagestyle{fancy}
-# - \renewcommand{\headrulewidth}{0pt}
-# - \fancyfoot[C]{}
-# - \fancyfoot[R]{\thepage}
-# ---
+---
+output:
+  bookdown::pdf_document2:
+    includes:
+      in_header: latex/preamble.tex
+      before_body: latex/titlepage.tex
+    pandoc_args:
+    - --csl
+    - references/apa.csl
+  bookdown::html_document2:
+    pandoc_args:
+    - --csl
+    - references/apa.csl
+  bookdown::word_document2:
+    pandoc_args:
+    - --csl
+    - references/apa.csl
+toc-title: Table of Contents
+bibliography: references/references.bib
+link-citations: yes
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \renewcommand{\headrulewidth}{0pt}
+- \fancyfoot[C]{}
+- \fancyfoot[R]{\thepage}
+---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, messages = FALSE)
-packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra", "mgcv")
+packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra", "mgcv", 
+              "rsample", "multcomp", "vip", "magicfor")
 package.check <- lapply(packages, FUN = function(x) {
     if (!require(x, character.only = TRUE)) {
         install.packages(x, dependencies = TRUE)
@@ -238,91 +239,178 @@ There are no missing values in this dataset.
 ```{r Overview, echo = TRUE, results = TRUE}
 str(emp_attrition)
 ```
-Interesting variables:
-
-- Attrition (yes/no)
-- Departement (3 levels)
-- DistanceFromHome(continous)
-- JobInvolvement (4 levels)
-- JobSatisfaction (4 levels)
-- Monthly income (continous)
-- NumCompaniesWorked (continous)
-- TrainingTimesLastYear (continous)
-- WorkLifeBalance (4 levels)
-- YearsAtCompany (continous) #might be used for LM model
-- YearWithCurrManager
 
 \newpage
 # Exploration
+
+## Histograms of variables 
+In this section the distributions of the numerical variables are analyzed visually, also
+in order to evaluate if a variable needs to be log transformed. Therefore, density histograms 
+are displayed for each variable with log transformation(orange) and without transformation(blue).
+
+```{r Dataset in scope, include=FALSE, message=FALSE, warning=FALSE}
+# Dataset variables in scope
+emp_attrition_scope <- emp_attrition[,c("Attrition", "Age", "BusinessTravel",
+                                        "DistanceFromHome", "EnvironmentSatisfaction",
+                                        "JobSatisfaction",
+                                        "NumCompaniesWorked", "OverTime",
+                                        "WorkLifeBalance", "YearsAtCompany",
+                                        "YearsSinceLastPromotion",
+                                        "YearsWithCurrManager")]
+
+```
+
+```{r Histograms, fig.show="hold", out.width = "33%"}
+#Selecting numerical variables / extracting names
+emp_attrition_numerical_only <- emp_attrition_scope %>% select_if(is.numeric)
+names_numerical <- colnames(emp_attrition_numerical_only)
+
+#Histogram plots loop
+for (i in 1:ncol(emp_attrition_numerical_only)) {
+  variable <- data.frame(matrix(nrow = 1470, ncol = 1))
+  variable[,1] <- emp_attrition_numerical_only[, i]
+  hist(variable[,1],
+       probability = TRUE, breaks = 25,
+       col = "blue", main = names_numerical[i])
+  lines(density(variable[,1]), lwd = 2, col = "deeppink3")
+  hist(log(variable[,1]), probability = TRUE, breaks = 25,
+       col = "orange", main = names_numerical[i])
+  lines(density(log(variable[,1])), lwd = 2, col = "deeppink3")
+  variable <- data.frame(matrix(nrow = 1470, ncol = 1))
+}
+
+```
+**Findings Histograms:**
+- All variables, expect the variable "Years with current Manager", show some sort
+of a right skeewed distribution and might be log transformed.
+- The variable "Years with current Manager" seems to display a bimodal distribution
+with two peaks, with the second peak showing right skeewedness. For a linear model, the
+values of the variable could be split around the value 5 to analyse each peak 
+separately, however, this might be most applicable if the residuals of the linear
+model also display a bimodal distribution indicating a strong influence of the variable. 
+- The variables "distance from home", "number of companies worked" and "years since 
+last promotion" do not display a normal distribution after the log transformation.
+This will be further considered when building a linear model. 
+\newpage
+
+# Training and Test Dataset 
+```{r , include=FALSE, message=FALSE, warning=FALSE}
+# Create training (80%) and test (20%)
+set.seed(111)
+emp_attrition_split <- initial_split(emp_attrition_scope, prop = 0.8, strata = "Attrition")
+emp_attrition_train <- training(emp_attrition_split)
+emp_attrition_test <- testing(emp_attrition_split)
+```
+
 
 
 \newpage
 
 # Linear Regression
+As it does not make sense to fit a Linear Model to a categorical variable such as "attrition" (Levels: Yes/NO), the linear models and also the General Additive Models will be fitted using "years at company" as the dependent variable. We assume that the there is less attrition, the longer the employees work for a company. Therefore, the insight of this chapter might help to fit more complex model to the variable "attrition" in the following chapters, but also indicate what leads employees to stay work longer for an employer. 
+
+## Simple Linear Model
+Before performing a linear regression model, the reference level for the factor variables
+are set to the level with the greatest n-count. Due to the length of the output, the loop below prints only the factor levels of the first two factor variables.
 ```{r Linear Regression}
-# All variables without log transformation
-lm.YearsAtCompany.0 <- lm(formula = YearsAtCompany ~ ., data = emp_attrition)
+# Setting factor levels # Output n count of factor levels
+emp_attrition_factors_only <- emp_attrition_train %>% select_if(is.factor)
+names_factor_variables <- colnames(emp_attrition_factors_only)
+# Loop through factor variables
+magic_for(print, silent = TRUE) # call magic_for()
+for (i in 1:ncol(emp_attrition_factors_only)) {
+  variable <- names_factor_variables[i]
+  factor_levels <- table(emp_attrition_factors_only[,i])
+  if (i < 3){ # printing first two iterations
+    put(variable, factor_levels)}
+  else {next}}
+
+# Setting reference levels to factor with greatest n count if required
+emp_attrition_test$EnvironmentSatisfaction <- relevel(emp_attrition_test$
+                                                        EnvironmentSatisfaction,
+                                                        ref = "High")
+emp_attrition_test$JobSatisfaction <- relevel(emp_attrition_test$JobSatisfaction
+                                              , ref = "High")
+emp_attrition_test$WorkLifeBalance <- relevel(emp_attrition_test$WorkLifeBalance
+                                              , ref = "Better")
+# Linear model without log transformation
+lm.YearsAtCompany.0 <- lm(formula=YearsAtCompany ~ ., data = emp_attrition_test)
 lm.summary.0 <- summary(lm.YearsAtCompany.0)
 lm.summary.0
+```
+**Findings LM Model .0:**
+- Variables with a significant influence on the dependet variable YearsAtCompany,
+according to p-value < 0.05: Age, NumCompaniesWorked, YearsSinceLastPromotion, YearsWithCurrManager
+- According to the Adjusted R-squared value the model explain 66.13% of the variance of the dependent
+variable.
+- The assumed normal distribution does only fit the numeric variable but not to 
+the categorical variables when the reference level is allocated automatically.
 
-#Histogram plotsloop
-emp_attrition_numerical_only <- emp_attrition[, c(1, 4, 6, 12, 18, 19, 20, 26,
-                                                  27, 29, 30, 31, 32)]
-names_numerical <- colnames(emp_attrition_numerical_only)
+## Linear Model with Log Transformation
 
-for (i in 1:ncol(emp_attrition_numerical_only)) {
-  variable <- emp_attrition_numerical_only[, i]
-  hist(variable, breaks = 30, col = "blue", main = names_numerical[i])
-}
-
-# Log transformation of variables that should only have positive values (or 0)
-emp_attrition_log <- emp_attrition
-#emp_attrition_log["DailyRate"] <- log(emp_attrition_log["DailyRate"]) 
-emp_attrition_log["DistanceFromHome"] <- log(emp_attrition_log["DistanceFromHome"]) 
-#emp_attrition_log["HourlyRate"] <- log(emp_attrition_log["HourlyRate"])
-emp_attrition_log["MonthlyIncome"] <- log(emp_attrition_log["MonthlyIncome"])
+In the next step the independent variables which displayed right skeewedness are log transformed for
+a further linear model. As the log transformation did create "Infinity values" from log(0) those values
+are changed back to 0. No NaN values are created because there are no negative values in the
+transformed variables. Created NaN values due to log transformation would most likely need to be deleted from a dataset if they can not be replaced by a reasonable value. Furthermore, the reference levels have to be set again for the newly created _log dataset.
+```{r Log Linear Regression}
+# Log transformation of variables that seem to be right skeewed 
+emp_attrition_log <- emp_attrition_train
+emp_attrition_log["Age"] <- log(emp_attrition_log["Age"]) 
 emp_attrition_log["YearsAtCompany"] <- log(emp_attrition_log["YearsAtCompany"])
-emp_attrition_log["NumCompaniesWorked"] <- log(emp_attrition_log["NumCompaniesWorked"])
-emp_attrition_log["TotalWorkingYears"] <- log(emp_attrition_log["TotalWorkingYears"])
-#emp_attrition_log["TrainingTimesLastYear"] <- log(emp_attrition_log["TrainingTimesLastYear"])
-emp_attrition_log["YearsInCurrentRole"] <- log(emp_attrition_log["YearsInCurrentRole"])
-emp_attrition_log["YearsSinceLastPromotion"] <- log(emp_attrition_log["YearsSinceLastPromotion"])
-emp_attrition_log["YearsWithCurrManager"] <- log(emp_attrition_log["YearsWithCurrManager"])
-
+emp_attrition_log["YearsWithCurrManager"] <- log(emp_attrition_log["YearsWithCurrManager"])  
 
 # Na's / -Inf values check after log transformation # Back to 0
 sum(is.na(emp_attrition_log)) # 0
-sum(emp_attrition_log == "-Inf") #1340
+sum(emp_attrition_log == "-Inf") #240
 emp_attrition_log[emp_attrition_log == "-Inf"] <- 0
-emp_attrition_log[emp_attrition_log == "NaN"] <- 0
 
 
-# All variables with log transformation
+# Setting reference levels to factor with greatest n count if required
+emp_attrition_log$EnvironmentSatisfaction <- relevel(emp_attrition_log$EnvironmentSatisfaction,
+                                                     ref = "High")
+emp_attrition_log$JobSatisfaction <- relevel(emp_attrition_log$JobSatisfaction, ref = "High")
+emp_attrition_log$WorkLifeBalance <- relevel(emp_attrition_log$WorkLifeBalance, ref = "Better")
+
+# LM All variables, incl. log transformation
 lm.YearsAtCompany.1 <- lm(formula = YearsAtCompany ~ ., data = emp_attrition_log)
 lm.summary.1 <- summary(lm.YearsAtCompany.1)
 lm.summary.1
 ```
-Findings LM Models _log:
-- Variable Age, p-value slightly > 0.05 - but is kept
-- Differences between Departements / Roles / Education etc. might be analysed in detail (different significance levels)
-- For next model only general variables with p-value > 0.05 are kept, excluding 
-variables with factor levels where not all levels are significant. 
-- Adjusted R-squared:  0.7861 without log transformation / with log transformation 0.85  
+**Findings LM Models .1 including log-transformation:**
+- Variables with a significant influence on the dependet variable YearsAtCompany,
+according to p-value < 0.05: Attrition, Age, NumCompaniesWorked, YearsSinceLastPromotion, YearsWithCurrManager
+- According to the Adjusted R-squared value, the model explains 71,98% of the variance of the 
+dependent variable displaying an increase of 5.85% compared to the previous model without log transformation.
+- Interestingly, the Categorical variables, EnvironmentSatisfaction, WorkLifeBalanceGood,
+display almost significant p-values for at least one factor level and will be kept for further modelling too. 
+- The variable "years with current manager" was log transformed due to the formely 
+detected right skeewedness of the second peak, which can be reduced by this procedure. Furthermore, this increases also the adjusted R-Squared value of the model. 
+- The variables "distance from home", "number of companies worked" and "years since 
+last promotion" are not log transformed because this decreased also the obtained 
+Adjusted R-squared value in a trial. 
 
-Findings Histograms:
-- Variables that show right skeewedness are log transformed. 
+## Residual Analysis LM Models
 
-# Residual analysis LM Models
+**Without log transformation: **
+-  Resiudals vs. fitted plot: The spread of residuals seems to be higher for higher fitted values. 
+Therefore, the normal distributions should be further questioned. 
+- QQ-Plot: The strayed residuals around the tails indicate that they might not 
+be normally distributed.
+- Density plot: As the residuals are mainly bell shaped, only displaying long
+tails, the normal distribution will still be assumed. Nevertheless, additional
+models will be fitted going forward. Furthermore, the formerly mentioned binominal
+distribution of the variable "Years with current manager" seems not to influence 
+the distribution of the residuals heavily. Therefore, the two peaks of the variable
+will not be analyzed separately nor will the data of the variable be split between
+the peaks. A split of the dataset would of course also have further implications
+which can be avoided in this analysis. 
 
-```{r}
-# Without log transformation
-# get list of residuals
+```{r , fig.show="hold", out.width = "33%", echo=FALSE}
+# Without log transformation # get list of residuals
 lm.YearsAtCompany.0_residuals <- resid(lm.YearsAtCompany.0)
-
 #produce residual vs. fitted plot
 plot(fitted(lm.YearsAtCompany.0), lm.YearsAtCompany.0_residuals)
 abline(0,0) #add a horizontal line at 0 
-
 #create Q-Q plot for residuals
 qqnorm(lm.YearsAtCompany.0_residuals)
 qqline(lm.YearsAtCompany.0_residuals)#add a straight diagonal line to the plot
@@ -330,7 +418,14 @@ qqline(lm.YearsAtCompany.0_residuals)#add a straight diagonal line to the plot
 #Create density plot of residuals
 plot(density(lm.YearsAtCompany.0_residuals))
 
+```
+**With log transformation:**
+- Residuals vs. fitted plot: The spread of residuals for higher fitted values was reduced compared to the model without log transformation. However, the opposite can be observed for lower fitted values. 
+- QQ-Plot: In this plot the residuals seem better distributed but still strayed
+for higher values. For lower values the assumption of normal distribution seems less appropriate. 
+- Density plot: The bell shape is still somehow given, the length of tail did not  change relatively to the scale. 
 
+```{r, fig.show="hold", out.width = "33%", echo=FALSE}
 # With log transformation
 # get list of residuals
 lm.YearsAtCompany.1_residuals <- resid(lm.YearsAtCompany.1)
@@ -345,82 +440,164 @@ qqline(lm.YearsAtCompany.1_residuals)#add a straight diagonal line to the plot
  
 #Create density plot of residuals
 plot(density(lm.YearsAtCompany.1_residuals))
+
 ```
-Without log transformation:
--  Resiudals vs. fitted plot: The spread of residuals seems to be higher for higher fitted values. 
-Therefore, the normal distributions should be further verified. 
-- QQ-Plot: The strayed residuals around the tails indicate that they might not 
-be normally distributed.
-- Density plot: As the residuals are mainly bell shaped, only displaying long
-tails, the normal distribution will still be assumed. Nevertheless, additional
-models will be fitted going forward.
 
-With log transformation:
-- Resiudals vs. fitted plot: The spread of residuals was reduced compared to the 
-model without log transformation.
-- QQ-Plot: In this plot the residuals seem better distributed but still strayed
-around higher values.
-- Density plot: The bell shape is still given, with less long tails. 
+## Final Linear Model and Verification
 
-
-```{r Linear Regression selection}
-# Significant variables, excluding variables where not all factor levels are 
-# significant for simplicity
-lm.YearsAtCompany.2 <- lm(YearsAtCompany ~ 
-                            Age +
-                            NumCompaniesWorked +
-                            PercentSalaryHike +
-                            TotalWorkingYears +
-                            YearsInCurrentRole +
-                            YearsSinceLastPromotion +
-                            YearsWithCurrManager
-                            , data = emp_attrition_log)
+```{r Linear Regression selection, fig.show="hold", out.width = "75%"}
+# Significant variables, including categorical variable with at least one factor 
+# level close to significance level
+lm.YearsAtCompany.2 <- lm(YearsAtCompany ~ Attrition + Age + EnvironmentSatisfaction +
+                          NumCompaniesWorked + WorkLifeBalance + 
+                          YearsSinceLastPromotion + YearsWithCurrManager,
+                          data = emp_attrition_log)
 lm.summary.2 <- summary(lm.YearsAtCompany.2)
 lm.summary.2
-```
-Findings:
-- All variables display a p-value > 0.05. Adjusted R-squared:  0.8467 - only a 
-0.0033 difference to the previous model including all the variables. 
-Interpretation:
-- Intercept: YearsAtCompany if all other variables were 0. Given variables such 
-as Age, it is pointless to interpret the intercept in this model.  
-- Age: With an increase of 1 year of age, the dependent variable YearsAtCompany 
-decreases by 0.003173. Seems logical, if people e.g. are going to retire 1 year earlier?
-- NumCompaniesWorked: If the variable increases by 1, the YearsAtCompany decrease 
-by 0.159989. People who change employers a lot might stick with this pattern.
-- PercentSalaryHike: If the Salary is increased by 1%, the YearsAtCompany decrease
-by 0.007561. This seems controversial but is also a sign that the salary-system 
-maybe does not work ideal. 
-- TotalWorkingYears: If the TotalWorkingYears increase by 1, the YearsAtCompany
-increase by 0.312428.
-- YearsInCurrentRole: If the YearsInCurrentRole increase by 1, the YearsAtCompany
-increase by 0.453442.
-- YearsSinceLastPromotion: If the YearsSinceLastPromotion increase by 1,
-the YearsAtCompany increase by 0.044885. This might suggest that people who expect
-a promotion are willing to keep working at the company.
-- YearsWithCurrManager: If the YearsWithCurrManager increase by 1, the YearsAtCompany
-increase by 0.385965. This hints that employees like consitency in the managment.
 
+# Variable importance plot
+vip(lm.YearsAtCompany.2)
+```
+
+**Interpretation:**
+- Adjusted R-squared: The model is explaining 71.45% of the variance of the dependent 
+variable YearsAtCompany.
+- Intercept: YearsAtCompany if all other variables were 0 or at the reference level. 
+Given variables such as Age, it is pointless to interpret the intercept in this model. 
+Numerical variables (log transformed just as the dependent variable):
+- Age: The dependent variable, YearsatCompany, increases by 0.45% years if the Age of an 
+employee increases by 1%. If for example a 40 years old and a 44 years old employee 
+are compared, the older employee is expected to work 0.45 years longer at the company.
+- NumCompaniesWorked: The dependent variable, YearsAtCompany, decreases by 0.01% if the 
+independent variable increases by 1%. 
+- YearsSinceLastPromotion: The dependent variable, YearsatCompany, increases by 0.17% if 
+the independent variable increases by 1%. 
+- YearsWithCurrManager The dependent variable, YearsatCompany, increases by 0.756075 if
+the independent variable increases by 1%. 
+Categorical variables (almost significant factor levels):
+- EnvironmentSatisfaction: The dependent variable, YearsAtCompany, decreases by 0.08% if the EnvironmentSatisfaction is "low", compared to the reference level "high".  
+- WorkLifeBalance: The dependent variable, YearsatCompany, increases by 0.07% respectively
+by 0.08% if the balance is "good" or even "best", compared to the reference level "better".
 ```{r}
-# Including variable with at least one significant factor level # Exclude?
-lm.YearsAtCompany.3 <- lm(YearsAtCompany ~ 
-                            Age +
-                            Education +
-                            EnvironmentSatisfaction + 
-                            JobRole +
-                            JobSatisfaction +
-                            NumCompaniesWorked +
-                            PercentSalaryHike +
-                            TotalWorkingYears +
-                            YearsInCurrentRole +
-                            YearsSinceLastPromotion +
-                            YearsWithCurrManager
-                            , data = emp_attrition_log)
+# Strict model based on model .2
+lm.YearsAtCompany.3 <- update(lm.YearsAtCompany.2, .~. - EnvironmentSatisfaction 
+                              - WorkLifeBalance)
 lm.summary.3 <- summary(lm.YearsAtCompany.3)
 lm.summary.3
+
+# Comparison
+anova(lm.YearsAtCompany.2, lm.YearsAtCompany.3)
 ```
 
-## Generalised Linear Models
+**Interpretation**
+- Only slight decrease of adjusted R-squared compared to the previous model by excluding 3 variables.
+- However, when looking at the "Residual Sums of Squares" (RSS) it becomes apparent that the previous model did explain slightly more of the variance of the dependent variable YearsAtCompany. Therefore, the more complex will be investigated further 
+in the next section using a General Additive Model. 
+
+```{r Verification LM}
+# Verification of model .2 with test data
+# Log transformation
+emp_attrition_test["Age"] <- log(emp_attrition_test["Age"]) 
+emp_attrition_test["YearsAtCompany"] <- log(emp_attrition_test["YearsAtCompany"])
+emp_attrition_test["YearsWithCurrManager"] <- log(emp_attrition_test["YearsWithCurrManager"])  
+# Na's / -Inf values check after log transformation # Back to 0
+sum(is.na(emp_attrition_test)) # 0
+sum(emp_attrition_test == "-Inf") #240
+emp_attrition_test[emp_attrition_test == "-Inf"] <- 0
+# Setting reference levels
+emp_attrition_test$EnvironmentSatisfaction <- relevel(emp_attrition_test$
+                                                      EnvironmentSatisfaction,
+                                                      ref = "High")
+emp_attrition_test$WorkLifeBalance <- relevel(emp_attrition_test$WorkLifeBalance,
+                                              ref = "Better")
+# Fitting Model
+lm.YearsAtCompany.test <- update(lm.YearsAtCompany.2, data = emp_attrition_test)
+lm.summary.test <- summary(lm.YearsAtCompany.test)
+lm.summary.test
+```
+
+**Interpretation**
+
+# General Additive Model
+
+Generalised Additive Models (GAMs) are an adaptation that allows us to model non-linear data while maintaining explainability.
+
+
+```{r}
+# Dataset Train
+emp_attrition_gam <- emp_attrition_train %>% select_if(is.numeric)
+emp_attrition_gam[,7] <- emp_attrition_train["Attrition"]
+emp_attrition_gam[,7] <- ifelse(emp_attrition_gam[,7] == "Yes",1,0)
+emp_attrition_gam[,8] <- emp_attrition_train["EnvironmentSatisfaction"]
+emp_attrition_gam[,9]<- emp_attrition_train["WorkLifeBalance"]
+names_variables <- colnames(emp_attrition_gam)
+# General Additive Model
+
+```
+
+
+
+```{r GAM Exploration YearsAtCompany, fig.show="hold", out.width = "50%"}
+# Exploration regarding relationship with dependent variable 
+for (i in 1:6) {
+  variable <- data.frame(matrix(nrow = 1175, ncol = 2))
+  variable[,1] <- emp_attrition_gam[,4]
+  variable[,2] <- emp_attrition_gam[,i]
+  print(ggplot(data = variable,
+          mapping = aes(y = variable[,1],
+          x = variable[,2])) +
+          geom_point() +
+          geom_smooth(method = "gam") +
+          ggtitle(names_variables[i]) +
+          xlab(names_variables[i]) +
+          ylab(names_variables[4]))
+}
+```
+**Interpretation of relationship of YearAtCompany ~ Variable:**
+- Age: The relationship might be sligthly quadratic. 
+- DistancefromHome: The relationship seems to be constant. 
+- NumCompaniesWorked: The relationship seems to be rather complex. 
+- TotalWorkingYears: The relationship seems to be rather complex than linear.
+- YearsInCurrentRole: The relationship seems to be rather complex than linear.
+- YearsWithCurrManager: The relationship seems to be rather complex than linear.
+
+```{r}
+# General Additive Model; YearsAtCompany
+gam.01 <- gam(YearsAtCompany ~  Attrition +
+                                Age +
+                                EnvironmentSatisfaction +
+                                NumCompaniesWorked +
+                                WorkLifeBalance +
+                                YearsSinceLastPromotion +
+                                YearsWithCurrManager, 
+                                data = emp_attrition_gam)
+
+summary(gam.01)
+```
+# Look at it again 
+- no smoother used since Age / Years variables are not continous but rather discrete since they
+obviously can not take any value 
+- poisson distribution applied since the dependent variable YearsAtCompany can not be negative. 
+- R-sq.(adj) =  0.726 / compared to the final lm model (lm.YearsAtCompany.4) this value is lower,
+maybe due to the selected log transformation in the lm model, but still close. 
+- Using the selectively log transformed data set and a gaussian distribution the outcome of the GAM
+Model is identical with the LM model. 
+
+```{r}
+# General Additive Model; YearsAtCompany
+gam.01 <- gam(YearsAtCompany ~  Attrition +
+                                s(Age) +
+                                EnvironmentSatisfaction +
+                                s(NumCompaniesWorked) +
+                                WorkLifeBalance +
+                                s(YearsSinceLastPromotion) +
+                                s(YearsWithCurrManager), 
+                                data = emp_attrition_gam)
+
+summary(gam.01)
+```
+#Interpretation
+- Smoothers increase R-sq.(adj) to 0.747.
 
 \newpage
 # Conclusion
@@ -429,7 +606,7 @@ lm.summary.3
 # Session Information {-}
 
 ```{r session-info}
-sessionInfo()
+#sessionInfo()
 ```
 
 \newpage
