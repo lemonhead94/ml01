@@ -259,25 +259,37 @@ kable(list(summary.factors[1:33,], summary.factors[34:66,]),
 
 \newpage
 
+## Splitting Dataset (Stratification)
+
+There is significant class imbalance in the variable Attrition (84 / 16) as can be seen in Table 2, which makes sense since most employees want to work at the company. However it is important to stratify the train and test split so that we receive a more realist estimate on how our model is going to perform.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE }
+set.seed(111)
+emp_attrition_split <- initial_split(emp_attrition, prop = 0.80, strata = "Attrition")
+emp_attrition_train <- training(emp_attrition_split) # i.e. 986 / 189 = 5.22
+emp_attrition_test  <- testing(emp_attrition_split) # i.e. 248 / 48 = 5.17
+```
+
+In this analysis we are splitting the data set with 80% training and 20% test / validation.
+As can be observed above we have an almost equal ratio of yes to no in the training as well as the testing data set due to stratification.
+
 # Exploration
 
 \newpage
 
 # Linear Regression
 
-# Extending the Linear Model
+# Generalised Linear Models
 
-## Generalised Linear Models
-
-### Simple Logistic Regression
+## Simple Logistic Regression
 
 ```{r}
 attrition_model1 <- glm(Attrition ~ OverTime, family = "binomial", data = emp_attrition)
-summary(attrition_model1)
+summary(attrition_model1)$coefficients
 ```
 Not unexpectedly overtime seems to play a relevant role. Indeed, its p-value is highly significant.
 
-```{r, out.width = "50%"}
+```{r attrition_vs_overtime, out.width = "50%", echo=FALSE}
 ggplot(emp_attrition, aes(OverTime, attrition_model1$fitted.values, color = OverTime)) +
   geom_boxplot(show.legend = FALSE) +
   geom_rug(sides = "b", position = "jitter", alpha = 0.2, show.legend = FALSE) +
@@ -288,72 +300,50 @@ ggplot(emp_attrition, aes(OverTime, attrition_model1$fitted.values, color = Over
 exp(coef(attrition_model1)["OverTimeYes"])
 ```
 
-The odds of someone leaving the company with overtime are about ~3.8 times higher than the odds for no overtime.
-Now, this seems quite important!
+The odds of someone leaving the company with overtime are about ~3.8 times higher than the odds for no overtime in this simple model.
 
 
+## Multiple logistic regression
 
-### Best Model
-
-```{r}
-prop.table(table(emp_attrition$Attrition))
-```
-
-There is significant class imbalance in the variable Attrition, which makes sense since most employees want to work at the company not quite working there.
-However it is important to stratify the train and test split so that we receive a more realist estimate on how our model is going to perform.
-
-```{r, echo=TRUE, message=FALSE, warning=FALSE }
-# Create training (80%) and test (20%)
-set.seed(111)
-emp_attrition_split <- initial_split(emp_attrition, prop = 0.80, strata = "Attrition")
-
-emp_attrition_train <- training(emp_attrition_split)
-# count(emp_attrition_train %>% filter(emp_attrition_train$Attrition == "Yes")) # 189
-# count(emp_attrition_train %>% filter(emp_attrition_train$Attrition == "No")) # 986
-# i.e. 986 / 189 = 5.22
-emp_attrition_test  <- testing(emp_attrition_split)
-# count(emp_attrition_test %>% filter(emp_attrition_test$Attrition == "Yes")) # 48
-# count(emp_attrition_test %>% filter(emp_attrition_test$Attrition == "No")) # 248
-# i.e. 248 / 48 = 5.17
-```
-
-As can be observed above we have an almost equal ratio of yes to no in the training as well as the testing data set due to stratification.
-
-```{r, echo=TRUE, message=FALSE, warning=FALSE }
+```{r variable_importance_multiple_logistic_regression, echo=FALSE, message=FALSE, warning=FALSE, out.width = "50%" }
 glm.model <- glm(Attrition ~ ., family = "binomial", data = emp_attrition_train)
-vip(glm.model, num_features = 30)
+vi(glm.model) %>%
+  filter(Sign == 'POS') %>%
+  ggplot(aes(x = Importance, y = reorder(Variable, +Importance))) + 
+  geom_bar(stat = "identity", fill='#01bfc4') + theme(legend.position="none") + 
+  ylab("")
+
+vi(glm.model) %>%
+  filter(Sign == 'NEG') %>%
+  ggplot(aes(x = Importance, y = reorder(Variable, +Importance), fill = Sign)) + 
+  geom_bar(stat = "identity") + theme(legend.position="none") + ylab("")
 ```
 
-In the above plot we can observe the most important variables (Variable Importance) to predict employment attrition according to the absolute value of the t-statistic. We observe that OverTime seems to be highly correlated with Attrition in this data set. Moreover, EnviromentSatisfaction and JobSatisfaction seem to also be critical, which would make sense since we are talking about employment attrititon.
+In the above plots we can observe the most important variables (Variable Importance) to predict employment attrition according to the absolute value of the z-statistic for each coefficient in the dataset. Moreover the importance of independent variables are colored to indicate increasing (blue) or decreasing (red) risk of employee attrition. We again observe that OverTime seems to be highly correlated with employee attrition in this data set. Moreover, EnviromentSatisfaction and JobSatisfaction seem to be also be critical, which would make sense since we are talking about employment attrition.
 
-```{r}
-glm.model.2 <- glm(Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + 
+Based on the exploratory data analysis, the previous section as well as the above variable importance scores we are trying to fit a better multiple logistic regression model.
+
+```{r multiple_logistic_regression_refined}
+glm.model.2 <- glm(Attrition ~ OverTime + EnvironmentSatisfaction + NumCompaniesWorked + 
                      JobSatisfaction + BusinessTravel + DistanceFromHome + 
-                     OverTime + WorkLifeBalance + Age + YearsWithCurrManager + 
-                     YearsSinceLastPromotion, 
+                     WorkLifeBalance + Age + YearsWithCurrManager + YearsSinceLastPromotion, 
                    family = "binomial", data = emp_attrition_train)
-summary(glm.model.2)
-vip(glm.model.2, num_features = 30)
 ```
 
-Based on the previous EDA and the conclusions of the linear model we may also fit a simpler model.
-By reducing the number of predictors we also get a different variable importance score.
-However, Age seems to have ranked a lot higher than before and overtime is still seems to show a large main effect.
-Therefore, we should check the interaction of these as well.
+The new model seems to have quite a good fit with all independent variables having significant p-values.
 
-```{r}
-glm.model.2 <- glm(Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + 
-                     JobSatisfaction + BusinessTravel + DistanceFromHome + 
-                     WorkLifeBalance + YearsWithCurrManager + 
-                     YearsSinceLastPromotion + Age + OverTime, 
-                   family = "binomial", data = emp_attrition_train)
-summary(glm.model.2)
-vip(glm.model.2, num_features = 30)
+```{r variable_importance_multiple_logistic_regression_refined, echo=FALSE}
+vip(glm.model.2, num_features = 30, horizontal = TRUE, 
+          mapping = aes_string(fill = "Sign"))
 ```
+The new variable importance plot seems to have ranked Age a lot higher than before while overtime still seems to remain a large main effect. Thus, there might be interactions in these variable and we should start developing the model.
 
-### Model Development
+\newpage
+## Model Development
 
-```{r, echo=FALSE, results=FALSE}
+The code for the model development is hidden since it is to large for this paper.
+
+```{r model-development, echo=FALSE, results=FALSE, warning=FALSE}
 glm.model.2 <- glm(Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + 
                      JobSatisfaction + BusinessTravel + DistanceFromHome + 
                      WorkLifeBalance + YearsWithCurrManager + 
@@ -539,13 +529,63 @@ glm.model.2 <- update(glm.model.2, . ~ . - Age:YearsWithCurrManager)
 drop1(glm.model.2, test = "F")
 ```
 By using the drop1 function we have added and remove significant interactions.
-Finally we end up with significant interaction inclusion of JobSatifaction with Age, Number of Comapnies Worked for, Work Life Balance and Business Travel Frequency.
+Finally we end up with significant interaction inclusion of JobSatifaction with Age, Number of Companies Worked for, Work Life Balance and Business Travel Frequency.
+
+```{r}
+final.glm <- glm(Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
+    BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
+    PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
+    YearsSinceLastPromotion + 
+    JobSatisfaction:Age + JobSatisfaction:NumCompaniesWorked + 
+    JobSatisfaction:WorkLifeBalance + JobSatisfaction:BusinessTravel, family = "binomial", data = emp_attrition)
+# exp(coef(final.glm))
+```
+
+**Interpretation of the Logistic Regression**
+
+The odds of someone leaving the company 
+
+  - with overtime are about ~5.6 times higher than the odds for no overtime
+  
+  - with a 'very high' environment satisfaction are lower than the ones of low environment satisfaction by ~0.31 times.
+  - with a 'high' environment satisfaction are lower than the ones of low environment satisfaction by ~0.37 times. 
+  - with a 'medium' environment satisfaction are lower than the ones of low environment satisfaction by ~0.38 times. 
+  
+  - are multiplied by 1.19 i.e increasing for each additional company the employee has worked for
+  
+  - with a 'very high' job satisfaction are lower than the ones of low job satisfaction by ~0.009 times.
+  - with a 'high' job satisfaction are lower than the ones of low job satisfaction by ~0.12 times.
+  - with a 'medium' job satisfaction are lower than the ones of low job satisfaction by ~0.04 times.
+  
+  - having to travel for work 'rarely' increases the risk by ~1.38 times
+  - having to travel for work 'frequently' increases the risk by ~2.04 times
+  
+  - are multiplied by 1.03 i.e increasing for each unit of distance between work and home
+  
+  - are multiplied by 0.97 i.e slightly decreasing for each additional year the employee has worked at the company
+  
+  - are multiplied by 0.99 i.e slightly decreasing for each percentage in salary hike an employee has received
+  
+  - with a 'good' work life balance score are lower than the ones of 'bad' work life balance score by ~0.11 times.
+  - with a 'better' work life balance score are lower than the ones of 'bad' work life balance score by ~0.11 times.
+  - with a 'best' work life balance score are lower than the ones of 'bad' work life balance score by ~0.12 times.
+
+  - are multiplied by 0.9 i.e decreasing for each additional year of age an employee has
+  
+  - are multiplied by 0.86 i.e decreasing for each additional year an employee has worked for the same manager
+  
+  - are multiplied by 1.17 i.e increasing for each year an employee has not received a promotion
+  
+**Summary**
+
+*Overtime* seems to increase the risk of attrition by almost six times as much and is by far the most highly critical attribute on whether an employee continues to stay at the company or not. 
+It does not seem to matter to much how well the *job environment* score is as long as it is above 'low' as they almost equally decrease the risk of someone leaving the company. The amount of *business traveling* an employee has to do seems to play an important role as well as the risk of someone quitting the company increases by two times if said person has frequently travel for work. *Age* seems to play a role as well as young employee seem to leave the company more often than old employees. Employee seem to leave the company less often if they are not bound to re-organisations i.e. have the same *manager* for an extended period of time. For each year an employee has not received a *promotion* the risk of them leaving increases.
 
 
-### Confusion Matrix
+## Confusion Matrix
 
 ```{r confusion-matrix, echo=FALSE, message=FALSE, warning=FALSE, out.width = "33%"}
-set.seed(123)
+set.seed(111)
 cv_glm.model <- train(
   Attrition ~ ., 
   data = emp_attrition_train, 
@@ -559,7 +599,7 @@ emp_attrition_results <- emp_attrition_test %>%
 
 # confusion matrix
 conf_mat(emp_attrition_results, truth = Attrition, estimate = `Logistic regression`) %>% 
-  autoplot(type = "heatmap")
+  autoplot(type = "heatmap") + ggplot2::ggtitle("1. All Predictors")
 
 cv_glm.model.2 <- train(
   Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
@@ -577,7 +617,7 @@ emp_attrition_results.2 <- emp_attrition_test %>%
 
 # confusion matrix
 conf_mat(emp_attrition_results.2, truth = Attrition, estimate = `Logistic regression`) %>% 
-  autoplot(type = "heatmap")
+  autoplot(type = "heatmap") + ggplot2::ggtitle("2. Multiple Logistic Regression w/o interactions")
 
 cv_glm.model.3 <- train(
   Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
@@ -597,91 +637,83 @@ emp_attrition_results.3 <- emp_attrition_test %>%
 
 # confusion matrix
 conf_mat(emp_attrition_results.3, truth = Attrition, estimate = `Logistic regression`) %>% 
-  autoplot(type = "heatmap")
+  autoplot(type = "heatmap") + ggplot2::ggtitle("3. Multiple Logistic Regression w/ interactions")
+
+cv_glm.model.0 <- train(
+  Attrition ~ OverTime, 
+  data = emp_attrition_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10) # 10 fold cross validation
+)
 ```
-**Interpretation**
 
 1. When looking at the first plot using cross validation & including all predictors we get the following scores.
 
-**Specificity** = True Negatives / (True Negatives + False Positives)
 
-- i.e. 237 / (10 + 237) = 0.95
-- 95% of the people not leaving the company were correctly identified by the Logistic Regression model.
+    *Specificity* = True Negatives / (True Negatives + False Positives)
+
+    - i.e. 237 / (10 + 237) = 0.95
+    - 95% of the people not leaving the company were correctly identified by the Logistic Regression model.
 
 
-**Sensitivity** = True Positives / (True Positives + False Negatives)
+    *Sensitivity* = True Positives / (True Positives + False Negatives)
 
-- i.e. 19 / (29 + 19) = 0.4
-- 40% of the people leaving the company were correctly identified by the Logistic Regression model.
+    - i.e. 19 / (29 + 19) = 0.4
+    - 40% of the people leaving the company were correctly identified by the Logistic Regression model.
 
 2. Without interactions using a much simpler model we actually get a better specificity, but can only predict 23% of the people who are actually leaving the company. In other words the True Positive Rate which we are looking for is significantly worse.
 
-**Specificity** = 239 / (8 + 239) = 0.97
-- 97% of the people not leaving the company were correctly identified by the Logistic Regression model.
 
-**Sensitivity** = 11 / (37 + 11) = 0.23
-- 23% of the people leaving the company were correctly identified by the Logistic Regression model.
+    *Specificity* = 239 / (8 + 239) = 0.97
+  
+    - 97% of the people not leaving the company were correctly identified by the Logistic Regression model.
+
+
+    *Sensitivity* = 11 / (37 + 11) = 0.23
+  
+    - 23% of the people leaving the company were correctly identified by the Logistic Regression model.
 
 3. When including the interactions we are able to predict the True Positive Rate a bit better however we sacrifice some of the specificity
 
-**Specificity** = 235 / (12 + 235) = 0.95
-- 95% of the people not leaving the company were correctly identified by the Logistic Regression model.
 
-**Sensitivity** = 12 / (36 + 12) = 0.25
-- 25% of the people leaving the company were correctly identified by the Logistic Regression model.
+    *Specificity* = 235 / (12 + 235) = 0.95
+  
+    - 95% of the people not leaving the company were correctly identified by the Logistic Regression model.
 
 
-```{r roc, echo=TRUE, message=FALSE, warning=FALSE, results='hide',fig.keep='all'}
-set.seed(123)
+    *Sensitivity* = 12 / (36 + 12) = 0.25
+  
+    - 25% of the people leaving the company were correctly identified by the Logistic Regression model.
+
+
+## Receiver Operating Characteristics
+
+```{r roc, echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hold'}
+set.seed(111)
 cv_glm.probability <- predict(cv_glm.model, emp_attrition_train, type = "prob")$Yes
 roc.info <- roc(emp_attrition_train$Attrition, cv_glm.probability, legacy.axes=TRUE)
 roc.df <- data.frame(tpp=roc.info$sensitivities*100, 
                      fpp=(1-roc.info$specificities)*100,
                      thresholds=roc.info$thresholds)
 
-# determining the perfect cutoff
-# roc.df[roc.df$tpp > 78 & roc.df$tpp < 79, ]
-# emp_attrition_train_2 <- emp_attrition_train %>% mutate(prob = ifelse(Attrition == "Yes", 1, 0))
-# emp_attrition_train_2 <- broom::augment(glm.model, emp_attrition_train_2) %>% mutate(.fitted = exp(.fitted))
-# confusionMatrix(as.factor(ifelse(emp_attrition_train_2$.fitted >= .78, "Yes", "No")), emp_attrition_train_2$Attrition)$table
+# calculating the probability
+cv_glm.probability.2 <- predict(cv_glm.model.2, emp_attrition_train, type = "prob")$Yes
+cv_glm.probability.3 <- predict(cv_glm.model.3, emp_attrition_train, type = "prob")$Yes
+cv_glm.probability.0 <- predict(cv_glm.model.0, emp_attrition_train, type = "prob")$Yes
 
 # plotting ROC
-cv_glm.probability.3 <- predict(cv_glm.model.3, emp_attrition_train, type = "prob")$Yes
 par(pty = "s")
-roc(emp_attrition_train$Attrition, cv_glm.probability, plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", ylab="True Positive Percentage", col="blue", lwd=1, print.auc=TRUE)
-plot.roc(emp_attrition_train$Attrition, cv_glm.probability.3, percent=TRUE, col="#4daf4a", add=TRUE, print.auc=TRUE, print.auc.y=40)
-legend("bottomright", legend=c("All Predictors", "Model Development"), col = c("blue", "#4daf4a"), lwd=2)
+roc(emp_attrition_train$Attrition, cv_glm.probability, plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", ylab="True Positive Percentage", col="blue", print.auc=TRUE)
+plot.roc(emp_attrition_train$Attrition, cv_glm.probability.3, percent=TRUE, col="#4daf4a", add=TRUE, print.auc=TRUE, print.auc.y=43)
+plot.roc(emp_attrition_train$Attrition, cv_glm.probability.2, percent=TRUE, col="#e34a33", add=TRUE, print.auc=TRUE, print.auc.y=36.5)
+plot.roc(emp_attrition_train$Attrition, cv_glm.probability.0, percent=TRUE, col="#1c9099", add=TRUE, print.auc=TRUE, print.auc.y=30)
+legend("bottomright", legend=c("Model w/ all predictors", "Model Development with interactions", "Model Development no interactions",  "Simple Model (w/ OverTime)"), col = c("blue", "#4daf4a", "#e34a33", "#1c9099", "#1c9099"), lwd=2, cex = 0.75)
 ```
 
-### Cross Validation
-
-```{r}
-set.seed(123)
-cv_glm.model.3.pls <- train(
-  Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
-    BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
-    PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
-    YearsSinceLastPromotion + 
-    JobSatisfaction:Age + JobSatisfaction:NumCompaniesWorked + 
-    JobSatisfaction:WorkLifeBalance + JobSatisfaction:BusinessTravel, 
-  data = emp_attrition_train, 
-  method = "pls",
-  family = "binomial",
-  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
-  preProcess = c("zv", "center", "scale"),
-  tuneLength = 16
-)
-cv_glm.model.3.pls
-# Model with lowest RMSE
-ggplot(cv_glm.model.3.pls)
-```
-
-
-As can be observed in the plot above the model with lowest Root Mean Square Error (RMSE)
-
-- 10 fold cross validaiton (90% of the data are used to train the model and 10% to test it).
-
-
+The above plot illustrates how the True Positive Rate (Sensitivity) behaves in relation with the False Positive Rate (1-Specificity).
+In this paper we want to maximize the amount of correct classifications of people leaving the company i.e. True Positive Rate.
+Thus we can take away from the above plot that including the interactions indeed makes sense, not solely to reach a higher Area Under the Curve (AUC), but also since a threshold of around ~90% on the True Positive Rate can reach a very similar False Positive Rate (around 25-30%) with a much simpler model (12 independent variables & 4 interactions vs 31 total independent variables). 
 
 \newpage
 
