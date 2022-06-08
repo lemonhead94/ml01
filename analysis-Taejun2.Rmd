@@ -1,0 +1,285 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, messages = FALSE)
+packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra", "mgcv", "e1071", "caret", "nnet", "NeuralNetTools", "vip", "rminer", "rsample", "mlbench", "readxl", "ROCR", "pROC")
+package.check <- lapply(packages, FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+        install.packages(x, dependencies = TRUE)
+        library(x, character.only = TRUE)
+    }
+})
+
+
+draw_confusion_matrix <- function(cm) {
+
+  layout(matrix(c(1,1,2)))
+  par(mar=c(2,2,2,2))
+  plot(c(100, 345), c(300, 450), type = "n", xlab="", ylab="", xaxt='n', yaxt='n')
+  title('CONFUSION MATRIX', cex.main=2)
+
+  # create the matrix 
+  rect(150, 430, 240, 370, col='#3F97D0')
+  text(195, 435, 'No', cex=1.2)
+  rect(250, 430, 340, 370, col='#F7AD50')
+  text(295, 435, 'Yes', cex=1.2)
+  text(125, 370, 'Predicted', cex=1.3, srt=90, font=2)
+  text(245, 450, 'Actual', cex=1.3, font=2)
+  rect(150, 305, 240, 365, col='#F7AD50')
+  rect(250, 305, 340, 365, col='#3F97D0')
+  text(140, 400, 'No', cex=1.2, srt=90)
+  text(140, 335, 'Yes', cex=1.2, srt=90)
+
+  # add in the cm results 
+  res <- as.numeric(cm$table)
+  text(195, 400, res[1], cex=1.6, font=2, col='white')
+  text(195, 335, res[2], cex=1.6, font=2, col='white')
+  text(295, 400, res[3], cex=1.6, font=2, col='white')
+  text(295, 335, res[4], cex=1.6, font=2, col='white')
+
+  # add in the specifics 
+  plot(c(100, 0), c(100, 0), type = "n", xlab="", ylab="", main = "DETAILS", xaxt='n', yaxt='n')
+  text(10, 85, names(cm$byClass[1]), cex=1.2, font=2)
+  text(10, 70, round(as.numeric(cm$byClass[1]), 3), cex=1.2)
+  text(30, 85, names(cm$byClass[2]), cex=1.2, font=2)
+  text(30, 70, round(as.numeric(cm$byClass[2]), 3), cex=1.2)
+  text(50, 85, names(cm$byClass[5]), cex=1.2, font=2)
+  text(50, 70, round(as.numeric(cm$byClass[5]), 3), cex=1.2)
+  text(70, 85, names(cm$byClass[6]), cex=1.2, font=2)
+  text(70, 70, round(as.numeric(cm$byClass[6]), 3), cex=1.2)
+  text(90, 85, names(cm$byClass[7]), cex=1.2, font=2)
+  text(90, 70, round(as.numeric(cm$byClass[7]), 3), cex=1.2)
+
+  # add in the accuracy information 
+  text(30, 35, names(cm$overall[1]), cex=1.5, font=2)
+  text(30, 20, round(as.numeric(cm$overall[1]), 3), cex=1.4)
+  text(70, 35, names(cm$overall[2]), cex=1.5, font=2)
+  text(70, 20, round(as.numeric(cm$overall[2]), 3), cex=1.4)
+}  
+```
+
+# Data preparation
+
+```{r import-data, echo = FALSE, results = FALSE}
+# Working directory
+setwd("/Users/moon/Documents/GitHub/ml01")
+emp_attrition <- read.csv("data/emp_attrition.csv")
+```
+
+The code for this part is left out from the PDF due to its length...
+
+```{r formatting-data, echo = FALSE, results = FALSE}
+# Attrition
+emp_attrition$Attrition <- as.factor(emp_attrition$Attrition)
+
+# BusinessTravel
+emp_attrition$BusinessTravel <- as.factor(emp_attrition$BusinessTravel)
+levels(emp_attrition$BusinessTravel) <- c("Rarely", "Frequently", "None")
+emp_attrition$BusinessTravel <- relevel(emp_attrition$BusinessTravel, ref = "None")
+
+# Department
+emp_attrition$Department <- as.factor(emp_attrition$Department)
+levels(emp_attrition$Department) <- c("Sales", "R&D", "HR")
+
+# Education
+emp_attrition$Education <- as.factor(emp_attrition$Education)
+levels(emp_attrition$Education) <- c("Below College", "College", "Bachelor", "Master", "Doctor")
+
+# EducationField
+emp_attrition$EducationField <- as.factor(emp_attrition$EducationField)
+
+# EnvironmentSatisfaction
+emp_attrition$EnvironmentSatisfaction <- as.factor(emp_attrition$EnvironmentSatisfaction)
+levels(emp_attrition$EnvironmentSatisfaction) <- c("Low", "Medium", "High", "Very High")
+
+# Gender
+emp_attrition$Gender <- as.factor(emp_attrition$Gender)
+
+# JobInvolvement
+emp_attrition$JobInvolvement <- as.factor(emp_attrition$JobInvolvement)
+levels(emp_attrition$JobInvolvement) <- c("Low", "Medium", "High", "Very High")
+
+# JobLevel
+emp_attrition$JobLevel <- as.factor(emp_attrition$JobLevel)
+
+# JobRole
+emp_attrition$JobRole <- as.factor(emp_attrition$JobRole)
+
+# JobSatisfaction
+emp_attrition$JobSatisfaction <- as.factor(emp_attrition$JobSatisfaction)
+levels(emp_attrition$JobSatisfaction) <- c("Low", "Medium", "High", "Very High")
+
+# MaritalStatus
+emp_attrition$MaritalStatus <- as.factor(emp_attrition$MaritalStatus)
+
+# OverTime
+emp_attrition$OverTime <- as.factor(emp_attrition$OverTime)
+
+# PerformanceRating
+emp_attrition$PerformanceRating <- as.factor(emp_attrition$PerformanceRating)
+levels(emp_attrition$PerformanceRating) <- c("Excellent", "Outstanding")
+
+# RelationshipSatisfaction
+emp_attrition$RelationshipSatisfaction <- as.factor(emp_attrition$RelationshipSatisfaction)
+levels(emp_attrition$RelationshipSatisfaction) <- c("Low", "Medium", "High", "Very High")
+
+# StockOptionLevel
+emp_attrition$StockOptionLevel <- as.factor(emp_attrition$StockOptionLevel)
+
+# WorkLifeBalance
+emp_attrition$WorkLifeBalance <- as.factor(emp_attrition$WorkLifeBalance)
+levels(emp_attrition$WorkLifeBalance) <- c("Bad", "Good", "Better", "Best")
+
+labels(emp_attrition) <- colnames(emp_attrition)
+labels(emp_attrition, which = c("Age", "BusinessTravel", "DailyRate", "DistanceFromHome", "EducationField", "EmployeeNumber", "EnvironmentSatisfaction", "HourlyRate", "JobInvolvement", "JobLevel", "JobRole", "JobSatisfaction", "MaritalStatus", "MonthlyIncome", "MonthlyRate", "NumCompaniesWorked", "OverTime", "PercentSalaryHike", "PerformanceRating", "RelationshipSatisfaction", "StockOptionLevel", "TotalWorkingYears", "TrainingTimesLastYear", "WorkLifeBalance", "YearsAtCompany", "YearsInCurrentRole", "YearsSinceLastPromotion", "YearsWithCurrManager")) <- c("Age (years)", "Business Travel", "Daily Rate (salary per day)", "Distance From Home (1-29)", "Education Field", "Employee ID", "Environment Satisfaction", "Hourly Rate (salary per hour)", "Job Involvement", "Job Level (internal company hierachy 1-5)", "Job Role", "Job Satisfaction", "Marital Status", "Monthly Income", "Monthly Rate (salary per month)", "Number of Companies worked before starting this position", "has done over time", "% Salary Hike", "Performance Rating", "Relationship Satisfaction", "Stock Option Level (number of stocks an employee owns from 0-3)", "Total Working Years", "Number Of Trainings Done Last Year", "Work Life Balance", "Number Of Years At Company", "Number of Years In Current Role", "Number Of Years Since Last Promotion", "Number Of Years With Current Manager")
+```
+
+## Data Cleaning
+
+```{r data-cleaning, echo=FALSE, results=FALSE}
+emp_attrition <- subset(emp_attrition, select = -c(EmployeeCount, StandardHours, Over18))
+```
+
+# SVM Cross Validation
+
+```{r svm-cross-validation}
+set.seed(123)
+cols <- c("Attrition","EnvironmentSatisfaction","NumCompaniesWorked","JobSatisfaction","BusinessTravel","DistanceFromHome","OverTime","YearsAtCompany","YearsSinceLastPromotion","YearsWithCurrManager","WorkLifeBalance","Age")
+
+emp_data <- emp_attrition[cols]
+
+#Split
+split <- initial_split(emp_data, prop = 0.7, strata = 'Attrition')
+#Create training and test set
+training <- training(split)
+testing <- testing(split)
+
+trctrl <- trainControl(method = "repeatedcv", number=10, repeats = 3)
+svm_radial <- train(Attrition ~ ., data = training, method = "svmRadial", trControl=trctrl, preProcess = c("center", "scale"), tuneLength = 10)
+svm_linear <- train(Attrition ~ ., data = training, method = "svmLinear", trControl=trctrl, preProcess = c("center", "scale"), tuneLength = 10)
+
+test_pred_radial <- predict(svm_radial, newdata = testing)
+test_pred_linear <- predict(svm_linear, newdata = testing)
+
+cm_radial <- confusionMatrix(table(test_pred_radial, testing$Attrition))
+cm_linear <- confusionMatrix(table(test_pred_linear, testing$Attrition))
+
+draw_confusion_matrix(cm_radial)
+draw_confusion_matrix(cm_linear)
+```
+
+Above two model shows that the model is quite biased towards predicting "No" Attrition. This can be assumed due to the unbalanced dataset where about 80% of the dataset included employees that did not have Attrition and 20% who had Attrition.
+
+Even though the accuracy of two model is relatively high scoring 85% and 83% this model is not approperate to predict employees that will have Attrition due to low specificity.
+
+```{r splitting-dataset}
+emp_data %>% count(Attrition)
+new_emp<- emp_data %>% group_by(Attrition) %>% slice_sample(n=200)
+
+#Split
+split2 <- initial_split(new_emp, prop = 0.7, strata = 'Attrition')
+#Create training and test set
+training2 <- training(split2)
+testing2 <- testing(split2)
+
+trctrl <- trainControl(method = "repeatedcv", number=10, repeats = 3)
+svm_radial2 <- train(Attrition ~ ., data = training2, method = "svmRadial", trControl=trctrl, preProcess = c("center", "scale"), tuneLength = 10)
+svm_linear2 <- train(Attrition ~ ., data = training2, method = "svmLinear", trControl=trctrl, preProcess = c("center", "scale"), tuneLength = 10)
+
+test_pred_radial2 <- predict(svm_radial2, newdata = testing2)
+test_pred_linear2 <- predict(svm_linear2, newdata = testing2)
+
+cm_radial2 <- confusionMatrix(table(test_pred_radial2, testing2$Attrition))
+cm_linear2 <- confusionMatrix(table(test_pred_linear2, testing2$Attrition))
+
+draw_confusion_matrix(cm_radial2)
+draw_confusion_matrix(cm_linear2)
+```
+
+After undersampling the dataset to have 50:50 ratio, the two model has lower accuracy but improved in specificity. 
+
+## Model Tuning
+
+Since we observed that dataset with 50:50 ratio showed desirable prediction output for our case, we will optimize the model by tuning the parameters. 
+
+```{r}
+set.seed(123)
+grid <- expand.grid(C = c(0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 5))
+
+svm_linear_grid <- train(
+  Attrition ~ ., data= training2, method = "svmLinear",
+  trControl = trctrl,
+  preProcess = c("center", "scale"),
+  tuneGrid = grid,
+  tuneLength = 10
+)
+
+plot(svm_linear_grid)
+
+svm_linear_grid$bestTune
+
+grid2 <- expand.grid(C = c(0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 5), sigma=c(0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 5))
+
+svm_radial_grid <- train(
+  Attrition ~ ., data= training2, method = "svmRadial",
+  trControl = trctrl,
+  preProcess = c("center", "scale"),
+  tuneGrid = grid2,
+  tuneLength = 10
+)
+
+plot(svm_radial_grid)
+
+svm_radial_grid$bestTune
+
+```
+
+The result shows C of 0.25 is the best parameter for linear SVM, for Radial SVM sigma of 0.01 and C of 1.5. Even though these values were obtained through 10 fold cross validation, the optimal parameter may change when the random seed is set to other value most likely because our dataset is not large enough and prone to random initalization of training and testing splitting.
+
+## Neural Network
+
+```{r}
+library(neuralnet)
+
+set.seed(123)
+emp_net = nnet(Attrition ~ ., data=training, size=15, maxit=100, range=0.1, decay=5e-4)
+pred_net <- predict(emp_net, testing, type="class")
+cm_nn <- confusionMatrix(table(pred=pred_net, true=testing$Attrition))
+draw_confusion_matrix(cm_nn)
+
+pred_raw <- predict(emp_net, testing, decision.values=TRUE, type = "raw")
+
+
+pred <- ROCR::prediction(pred_raw, testing$Attrition)
+perf <- ROCR::performance(pred,measure="tpr", x.measure="fpr")
+plot(perf, lwd=2, col="blue")
+abline(a=0, b=1)
+auc_ROCR <- performance(pred, measure="auc")
+auc_ROCR <- auc_ROCR@y.values[[1]]
+auc_ROCR
+```
+
+```{r}
+emp_net2 = nnet(Attrition ~ ., data=training2, size=15, maxit=100, range=0.1, decay=5e-4)
+pred_net2 <- predict(emp_net2, testing2, type="class")
+cm_nn2 <- confusionMatrix(table(pred=pred_net2, true=testing2$Attrition))
+draw_confusion_matrix(cm_nn2)
+
+pred_raw2 <- predict(emp_net2, testing2, decision.values=TRUE, type = "raw")
+
+pred2 <- ROCR::prediction(pred_raw2, testing2$Attrition)
+perf2 <- ROCR::performance(pred2, measure="tpr", x.measure="fpr")
+plot(perf2, lwd=2, col="blue")
+abline(a=0, b=1)
+auc_ROCR2 <- performance(pred2, measure="auc")
+auc_ROCR2 <- auc_ROCR2@y.values[[1]]
+auc_ROCR2
+```
+
+For neural network model result is interesting compare to SVM model. Even though the model is biased twoards classifying employee as not having attrition, this result can be adjusted by moving the cutoff value. Both the full sample model and under sampled model shows similar AUC value thus choosing an appropriate cutoff value will allow the model to predict attrition of employee with desirable sensitivity and specificity.
