@@ -61,11 +61,12 @@ Therefore, IBM data scientists created a fictitious data set as a challenge for 
 
 # Methodology
 
-The following alogorithns are covered through out this paper:
+The following topics are layed out through out this paper:
 
 1.  Linear Models
 2.  Extending the Linear Model: Non-linearity (GAM)
 3.  Extending the Linear Model: Generalised Linear Models (GLM)
+- poisson as well as binominal
 4.  Support Vector Machines
 5.  Neural Networks
 6.  Optimisation
@@ -278,11 +279,9 @@ As can be observed above we have an almost equal ratio of yes to no in the train
 
 # Linear Regression
 
-# Extending the Linear Model
+# Generalised Linear Models
 
-## Generalised Linear Models
-
-### Simple Logistic Regression
+## Simple Logistic Regression
 
 ```{r}
 attrition_model1 <- glm(Attrition ~ OverTime, family = "binomial", data = emp_attrition)
@@ -304,7 +303,7 @@ exp(coef(attrition_model1)["OverTimeYes"])
 The odds of someone leaving the company with overtime are about ~3.8 times higher than the odds for no overtime in this simple model.
 
 
-### Multiple logistic regression
+## Multiple logistic regression
 
 ```{r variable_importance_multiple_logistic_regression, echo=FALSE, message=FALSE, warning=FALSE, out.width = "50%" }
 glm.model <- glm(Attrition ~ ., family = "binomial", data = emp_attrition_train)
@@ -340,7 +339,7 @@ vip(glm.model.2, num_features = 30, horizontal = TRUE,
 The new variable importance plot seems to have ranked Age a lot higher than before while overtime still seems to remain a large main effect. Thus, there might be interactions in these variable and we should start developing the model.
 
 \newpage
-### Model Development
+## Model Development
 
 The code for the model development is hidden since it is to large for this paper.
 
@@ -538,7 +537,7 @@ final.glm <- glm(Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobS
     PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
     YearsSinceLastPromotion + 
     JobSatisfaction:Age + JobSatisfaction:NumCompaniesWorked + 
-    JobSatisfaction:WorkLifeBalance + JobSatisfaction:BusinessTravel, family = "binomial", data = emp_attrition)
+    JobSatisfaction:WorkLifeBalance + JobSatisfaction:BusinessTravel, family = "binomial", data = emp_attrition_train)
 # exp(coef(final.glm))
 ```
 
@@ -583,7 +582,7 @@ The odds of someone leaving the company
 It does not seem to matter to much how well the *job environment* score is as long as it is above 'low' as they almost equally decrease the risk of someone leaving the company. The amount of *business traveling* an employee has to do seems to play an important role as well as the risk of someone quitting the company increases by two times if said person has frequently travel for work. *Age* seems to play a role as well as young employee seem to leave the company more often than old employees. Employee seem to leave the company less often if they are not bound to re-organisations i.e. have the same *manager* for an extended period of time. For each year an employee has not received a *promotion* the risk of them leaving increases.
 
 
-### Confusion Matrix
+## Confusion Matrix
 
 ```{r confusion-matrix, echo=FALSE, message=FALSE, warning=FALSE, out.width = "33%"}
 set.seed(111)
@@ -652,13 +651,13 @@ cv_glm.model.0 <- train(
 1. When looking at the first plot using cross validation & including all predictors we get the following scores.
 
 
-    *Specificity* = True Negatives / (True Negatives + False Positives)
+    *Sensitivity* = True Negatives / (True Negatives + False Positives)
 
     - i.e. 237 / (10 + 237) = 0.95
     - 95% of the people not leaving the company were correctly identified by the Logistic Regression model.
 
 
-    *Sensitivity* = True Positives / (True Positives + False Negatives)
+    *Specificity* = True Positives / (True Positives + False Negatives)
 
     - i.e. 19 / (29 + 19) = 0.4
     - 40% of the people leaving the company were correctly identified by the Logistic Regression model.
@@ -666,55 +665,56 @@ cv_glm.model.0 <- train(
 2. Without interactions using a much simpler model we actually get a better specificity, but can only predict 23% of the people who are actually leaving the company. In other words the True Positive Rate which we are looking for is significantly worse.
 
 
-    *Specificity* = 239 / (8 + 239) = 0.97
+    *Sensitivity* = 239 / (8 + 239) = 0.97
   
     - 97% of the people not leaving the company were correctly identified by the Logistic Regression model.
 
 
-    *Sensitivity* = 11 / (37 + 11) = 0.23
+    *Specificity* = 11 / (37 + 11) = 0.23
   
     - 23% of the people leaving the company were correctly identified by the Logistic Regression model.
 
 3. When including the interactions we are able to predict the True Positive Rate a bit better however we sacrifice some of the specificity
 
 
-    *Specificity* = 235 / (12 + 235) = 0.95
+    *Sensitivity* = 235 / (12 + 235) = 0.95
   
     - 95% of the people not leaving the company were correctly identified by the Logistic Regression model.
 
 
-    *Sensitivity* = 12 / (36 + 12) = 0.25
+    *Specificity* = 12 / (36 + 12) = 0.25
   
     - 25% of the people leaving the company were correctly identified by the Logistic Regression model.
 
 
-### Receiver Operating Characteristics
+## Receiver Operating Characteristics
 
 ```{r roc, echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hold'}
 set.seed(111)
-cv_glm.probability <- predict(cv_glm.model, emp_attrition_train, type = "prob")$Yes
-roc.info <- roc(emp_attrition_train$Attrition, cv_glm.probability, legacy.axes=TRUE)
+cv_glm.probability <- predict(cv_glm.model, emp_attrition_test, type = "prob")$Yes
+roc.info <- roc(emp_attrition_test$Attrition, cv_glm.probability, legacy.axes=TRUE)
 roc.df <- data.frame(tpp=roc.info$sensitivities*100, 
                      fpp=(1-roc.info$specificities)*100,
                      thresholds=roc.info$thresholds)
 
 # calculating the probability
-cv_glm.probability.2 <- predict(cv_glm.model.2, emp_attrition_train, type = "prob")$Yes
-cv_glm.probability.3 <- predict(cv_glm.model.3, emp_attrition_train, type = "prob")$Yes
-cv_glm.probability.0 <- predict(cv_glm.model.0, emp_attrition_train, type = "prob")$Yes
+cv_glm.probability.2 <- predict(cv_glm.model.2, emp_attrition_test, type = "prob")$Yes
+cv_glm.probability.3 <- predict(cv_glm.model.3, emp_attrition_test, type = "prob")$Yes
+cv_glm.probability.0 <- predict(cv_glm.model.0, emp_attrition_test, type = "prob")$Yes
 
 # plotting ROC
 par(pty = "s")
-roc(emp_attrition_train$Attrition, cv_glm.probability, plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", ylab="True Positive Percentage", col="blue", print.auc=TRUE)
-plot.roc(emp_attrition_train$Attrition, cv_glm.probability.3, percent=TRUE, col="#4daf4a", add=TRUE, print.auc=TRUE, print.auc.y=43)
-plot.roc(emp_attrition_train$Attrition, cv_glm.probability.2, percent=TRUE, col="#e34a33", add=TRUE, print.auc=TRUE, print.auc.y=36.5)
-plot.roc(emp_attrition_train$Attrition, cv_glm.probability.0, percent=TRUE, col="#1c9099", add=TRUE, print.auc=TRUE, print.auc.y=30)
+roc(emp_attrition_test$Attrition, cv_glm.probability, plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", ylab="True Positive Percentage", col="blue", print.auc=TRUE)
+plot.roc(emp_attrition_test$Attrition, cv_glm.probability.3, percent=TRUE, col="#4daf4a", add=TRUE, print.auc=TRUE, print.auc.y=43)
+plot.roc(emp_attrition_test$Attrition, cv_glm.probability.2, percent=TRUE, col="#e34a33", add=TRUE, print.auc=TRUE, print.auc.y=36.5)
+plot.roc(emp_attrition_test$Attrition, cv_glm.probability.0, percent=TRUE, col="#1c9099", add=TRUE, print.auc=TRUE, print.auc.y=30)
 legend("bottomright", legend=c("Model w/ all predictors", "Model Development with interactions", "Model Development no interactions",  "Simple Model (w/ OverTime)"), col = c("blue", "#4daf4a", "#e34a33", "#1c9099", "#1c9099"), lwd=2, cex = 0.75)
 ```
 
 The above plot illustrates how the True Positive Rate (Sensitivity) behaves in relation with the False Positive Rate (1-Specificity).
 In this paper we want to maximize the amount of correct classifications of people leaving the company i.e. True Positive Rate.
-Thus we can take away from the above plot that including the interactions indeed makes sense, not solely to reach a higher Area Under the Curve (AUC), but also since a threshold of around ~90% on the True Positive Rate can reach a very similar False Positive Rate (around 25-30%) with a much simpler model (12 independent variables & 4 interactions vs 31 total independent variables). 
+
+Thus we can take away from the above plot that including the interactions does not make to much sense since with a very similar False Positive Rate (around 25-30%) with a much simpler model (12 independent variables & 4 interactions vs 31 total independent variables). 
 
 \newpage
 

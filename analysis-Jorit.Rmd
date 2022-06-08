@@ -537,7 +537,7 @@ final.glm <- glm(Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobS
     PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
     YearsSinceLastPromotion + 
     JobSatisfaction:Age + JobSatisfaction:NumCompaniesWorked + 
-    JobSatisfaction:WorkLifeBalance + JobSatisfaction:BusinessTravel, family = "binomial", data = emp_attrition)
+    JobSatisfaction:WorkLifeBalance + JobSatisfaction:BusinessTravel, family = "binomial", data = emp_attrition_train)
 # exp(coef(final.glm))
 ```
 
@@ -651,13 +651,13 @@ cv_glm.model.0 <- train(
 1. When looking at the first plot using cross validation & including all predictors we get the following scores.
 
 
-    *Specificity* = True Negatives / (True Negatives + False Positives)
+    *Sensitivity* = True Negatives / (True Negatives + False Positives)
 
     - i.e. 237 / (10 + 237) = 0.95
     - 95% of the people not leaving the company were correctly identified by the Logistic Regression model.
 
 
-    *Sensitivity* = True Positives / (True Positives + False Negatives)
+    *Specificity* = True Positives / (True Positives + False Negatives)
 
     - i.e. 19 / (29 + 19) = 0.4
     - 40% of the people leaving the company were correctly identified by the Logistic Regression model.
@@ -665,24 +665,24 @@ cv_glm.model.0 <- train(
 2. Without interactions using a much simpler model we actually get a better specificity, but can only predict 23% of the people who are actually leaving the company. In other words the True Positive Rate which we are looking for is significantly worse.
 
 
-    *Specificity* = 239 / (8 + 239) = 0.97
+    *Sensitivity* = 239 / (8 + 239) = 0.97
   
     - 97% of the people not leaving the company were correctly identified by the Logistic Regression model.
 
 
-    *Sensitivity* = 11 / (37 + 11) = 0.23
+    *Specificity* = 11 / (37 + 11) = 0.23
   
     - 23% of the people leaving the company were correctly identified by the Logistic Regression model.
 
 3. When including the interactions we are able to predict the True Positive Rate a bit better however we sacrifice some of the specificity
 
 
-    *Specificity* = 235 / (12 + 235) = 0.95
+    *Sensitivity* = 235 / (12 + 235) = 0.95
   
     - 95% of the people not leaving the company were correctly identified by the Logistic Regression model.
 
 
-    *Sensitivity* = 12 / (36 + 12) = 0.25
+    *Specificity* = 12 / (36 + 12) = 0.25
   
     - 25% of the people leaving the company were correctly identified by the Logistic Regression model.
 
@@ -691,29 +691,30 @@ cv_glm.model.0 <- train(
 
 ```{r roc, echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hold'}
 set.seed(111)
-cv_glm.probability <- predict(cv_glm.model, emp_attrition_train, type = "prob")$Yes
-roc.info <- roc(emp_attrition_train$Attrition, cv_glm.probability, legacy.axes=TRUE)
+cv_glm.probability <- predict(cv_glm.model, emp_attrition_test, type = "prob")$Yes
+roc.info <- roc(emp_attrition_test$Attrition, cv_glm.probability, legacy.axes=TRUE)
 roc.df <- data.frame(tpp=roc.info$sensitivities*100, 
                      fpp=(1-roc.info$specificities)*100,
                      thresholds=roc.info$thresholds)
 
 # calculating the probability
-cv_glm.probability.2 <- predict(cv_glm.model.2, emp_attrition_train, type = "prob")$Yes
-cv_glm.probability.3 <- predict(cv_glm.model.3, emp_attrition_train, type = "prob")$Yes
-cv_glm.probability.0 <- predict(cv_glm.model.0, emp_attrition_train, type = "prob")$Yes
+cv_glm.probability.2 <- predict(cv_glm.model.2, emp_attrition_test, type = "prob")$Yes
+cv_glm.probability.3 <- predict(cv_glm.model.3, emp_attrition_test, type = "prob")$Yes
+cv_glm.probability.0 <- predict(cv_glm.model.0, emp_attrition_test, type = "prob")$Yes
 
 # plotting ROC
 par(pty = "s")
-roc(emp_attrition_train$Attrition, cv_glm.probability, plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", ylab="True Positive Percentage", col="blue", print.auc=TRUE)
-plot.roc(emp_attrition_train$Attrition, cv_glm.probability.3, percent=TRUE, col="#4daf4a", add=TRUE, print.auc=TRUE, print.auc.y=43)
-plot.roc(emp_attrition_train$Attrition, cv_glm.probability.2, percent=TRUE, col="#e34a33", add=TRUE, print.auc=TRUE, print.auc.y=36.5)
-plot.roc(emp_attrition_train$Attrition, cv_glm.probability.0, percent=TRUE, col="#1c9099", add=TRUE, print.auc=TRUE, print.auc.y=30)
+roc(emp_attrition_test$Attrition, cv_glm.probability, plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", ylab="True Positive Percentage", col="blue", print.auc=TRUE)
+plot.roc(emp_attrition_test$Attrition, cv_glm.probability.3, percent=TRUE, col="#4daf4a", add=TRUE, print.auc=TRUE, print.auc.y=43)
+plot.roc(emp_attrition_test$Attrition, cv_glm.probability.2, percent=TRUE, col="#e34a33", add=TRUE, print.auc=TRUE, print.auc.y=36.5)
+plot.roc(emp_attrition_test$Attrition, cv_glm.probability.0, percent=TRUE, col="#1c9099", add=TRUE, print.auc=TRUE, print.auc.y=30)
 legend("bottomright", legend=c("Model w/ all predictors", "Model Development with interactions", "Model Development no interactions",  "Simple Model (w/ OverTime)"), col = c("blue", "#4daf4a", "#e34a33", "#1c9099", "#1c9099"), lwd=2, cex = 0.75)
 ```
 
 The above plot illustrates how the True Positive Rate (Sensitivity) behaves in relation with the False Positive Rate (1-Specificity).
 In this paper we want to maximize the amount of correct classifications of people leaving the company i.e. True Positive Rate.
-Thus we can take away from the above plot that including the interactions indeed makes sense, not solely to reach a higher Area Under the Curve (AUC), but also since a threshold of around ~90% on the True Positive Rate can reach a very similar False Positive Rate (around 25-30%) with a much simpler model (12 independent variables & 4 interactions vs 31 total independent variables). 
+
+Thus we can take away from the above plot that including the interactions does not make to much sense since with a very similar False Positive Rate (around 25-30%) with a much simpler model (12 independent variables & 4 interactions vs 31 total independent variables). 
 
 \newpage
 
