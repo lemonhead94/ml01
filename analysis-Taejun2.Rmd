@@ -148,7 +148,7 @@ emp_attrition <- subset(emp_attrition, select = -c(EmployeeCount, StandardHours,
 
 # SVM Cross Validation
 
-```{r svm-cross-validation}
+```{r svm-cross-validation, out.width="50%", fig.show='hold'}
 set.seed(123)
 cols <- c("Attrition","EnvironmentSatisfaction","NumCompaniesWorked","JobSatisfaction","BusinessTravel","DistanceFromHome","OverTime","YearsAtCompany","YearsSinceLastPromotion","YearsWithCurrManager","WorkLifeBalance","Age")
 
@@ -178,7 +178,7 @@ Above two model shows that the model is quite biased towards predicting "No" Att
 
 Even though the accuracy of two model is relatively high scoring 85% and 83% this model is not approperate to predict employees that will have Attrition due to low specificity.
 
-```{r splitting-dataset}
+```{r splitting-dataset, out.width="50%", fig.show='hold'}
 emp_data %>% count(Attrition)
 new_emp<- emp_data %>% group_by(Attrition) %>% slice_sample(n=200)
 
