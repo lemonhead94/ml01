@@ -28,7 +28,7 @@ header-includes:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, messages = FALSE)
-packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra", "mgcv", "caret", "vip", "rsample", "tidyverse", "yardstick", "arm", "pROC")
+packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra", "mgcv", "caret", "vip", "rsample", "tidyverse", "yardstick", "arm", "pROC", "nnet")
 package.check <- lapply(packages, FUN = function(x) {
     if (!require(x, character.only = TRUE)) {
         install.packages(x, dependencies = TRUE)
@@ -718,6 +718,268 @@ Thus we can take away from the above plot that including the interactions does n
 
 \newpage
 
+# Support Vector Machine
+
+## Model Training
+
+With same training testing data set from above models we will train two different type of SVM model Linear and Radia and observe its performance.
+
+```{r , echo=FALSE, message=FALSE, warning=FALSE}
+draw_confusion_matrix <- function(cm, cm_title) {
+  layout(matrix(c(1,1,2)))
+  par(mar=c(2,2,2,2))
+  plot(c(100, 345), c(300, 450), type = "n", xlab="", ylab="", xaxt='n', yaxt='n')
+  title(cm_title, cex.main=2)
+
+  # create the matrix 
+  rect(150, 430, 240, 370, col='#3F97D0')
+  text(195, 435, 'No', cex=1.2)
+  rect(250, 430, 340, 370, col='#F7AD50')
+  text(295, 435, 'Yes', cex=1.2)
+  text(125, 370, 'Predicted', cex=1.3, srt=90, font=2)
+  text(245, 450, 'Actual', cex=1.3, font=2)
+  rect(150, 305, 240, 365, col='#F7AD50')
+  rect(250, 305, 340, 365, col='#3F97D0')
+  text(140, 400, 'No', cex=1.2, srt=90)
+  text(140, 335, 'Yes', cex=1.2, srt=90)
+
+  # add in the cm results 
+  res <- as.numeric(cm$table)
+  text(195, 400, res[1], cex=1.6, font=2, col='white')
+  text(195, 335, res[2], cex=1.6, font=2, col='white')
+  text(295, 400, res[3], cex=1.6, font=2, col='white')
+  text(295, 335, res[4], cex=1.6, font=2, col='white')
+
+  # add in the specifics 
+  plot(c(100, 0), c(100, 0), type = "n", xlab="", ylab="", main = "DETAILS", xaxt='n', yaxt='n')
+  text(10, 85, names(cm$byClass[1]), cex=1.2, font=2)
+  text(10, 70, round(as.numeric(cm$byClass[1]), 3), cex=1.2)
+  text(30, 85, names(cm$byClass[2]), cex=1.2, font=2)
+  text(30, 70, round(as.numeric(cm$byClass[2]), 3), cex=1.2)
+  text(50, 85, names(cm$byClass[5]), cex=1.2, font=2)
+  text(50, 70, round(as.numeric(cm$byClass[5]), 3), cex=1.2)
+  text(70, 85, names(cm$byClass[6]), cex=1.2, font=2)
+  text(70, 70, round(as.numeric(cm$byClass[6]), 3), cex=1.2)
+  text(90, 85, names(cm$byClass[7]), cex=1.2, font=2)
+  text(90, 70, round(as.numeric(cm$byClass[7]), 3), cex=1.2)
+
+  # add in the accuracy information 
+  text(30, 35, names(cm$overall[1]), cex=1.5, font=2)
+  text(30, 20, round(as.numeric(cm$overall[1]), 3), cex=1.4)
+  text(70, 35, names(cm$overall[2]), cex=1.5, font=2)
+  text(70, 20, round(as.numeric(cm$overall[2]), 3), cex=1.4)
+}
+
+set.seed(111)
+
+svm_radial <- train(
+  Attrition ~ .,
+  data = emp_attrition_train,
+  method = "svmRadial",
+  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
+)
+
+svm_linear <- train(
+  Attrition ~ .,
+  data = emp_attrition_train,
+  method = "svmLinear",
+  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
+)
+
+test_pred_radial <- predict(svm_radial, newdata = emp_attrition_test)
+test_pred_linear <- predict(svm_linear, newdata = emp_attrition_test)
+
+cm_radial <- confusionMatrix(table(test_pred_radial, emp_attrition_test$Attrition))
+cm_linear <- confusionMatrix(table(test_pred_linear, emp_attrition_test$Attrition))
+```
+
+```{r, echo=FALSE, out.width="50%", fig.show='hold'}
+draw_confusion_matrix(cm=cm_radial, cm_title = 'SVM Radial (All predictors)')
+draw_confusion_matrix(cm=cm_linear, cm_title = "SVM Linear (All predictors)")
+```
+
+Here we can observe that both model has relatively poor specificity compare to its accuracy. This means that model is trained biased to predict that given employee does not have Attrition. This is due to unbalanced label of data set where most of our data set were employees without Attrition. 
+
+Depending on the objective of the business goal this model maybe good enough, but our goal is to minimize the cost happening due to Attrition so we may need a model that has reasonable specificity. 
+
+## Under sampling
+
+In order to avoid biased training we will under sample the data set to have equal amount of employee with Attrition and without. 
+
+```{r undersample}
+set.seed(111)
+emp_undersample<- emp_attrition %>% group_by(Attrition) %>% slice_sample(n=200)
+
+emp_attrition_split.under <- initial_split(emp_undersample, prop = 0.80, strata = "Attrition")
+emp_attrition_train.under <- training(emp_attrition_split.under)
+emp_attrition_test.under  <- testing(emp_attrition_split.under)
+emp_undersample %>% count(Attrition)
+```
+
+Here we can observe that under sampled dataset has equal amount of 'Yes' and 'No'. With this new data set we will train SVM and observe its performance.
+
+```{r, echo=FALSE, out.width="50%", fig.show='hold'}
+set.seed(111)
+
+svm_radial.under <- train(
+  Attrition ~ .,
+  data = emp_attrition_train.under,
+  method = "svmRadial",
+  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
+)
+
+svm_linear.under <- train(
+  Attrition ~ .,
+  data = emp_attrition_train.under,
+  method = "svmLinear",
+  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
+)
+
+test_pred_radial.under <- predict(svm_radial.under, newdata = emp_attrition_test.under)
+test_pred_linear.under <- predict(svm_linear.under, newdata = emp_attrition_test.under)
+
+cm_radial.under <- confusionMatrix(table(test_pred_radial.under, emp_attrition_test.under$Attrition))
+cm_linear.under <- confusionMatrix(table(test_pred_linear.under, emp_attrition_test.under$Attrition))
+
+draw_confusion_matrix(cm=cm_radial.under, cm_title = 'SVM Radial (All predictors) under sampled')
+draw_confusion_matrix(cm=cm_linear.under, cm_title = "SVM Linear (All predictors) under sampled")
+```
+
+After under sampling the data to have balanced label the perforamnce of both model changed. The accuracy of both model decreased but specificity increased. This indicates that this model is more capable of predicting employee who may have Attrition.
+
+## Variable Selection
+
+In order to compare with other models with how selection of predictor/variable impacts the model performance we trained SVM with selected variables. 
+
+Chosen variables are shown below.
+
+- EnvironmentSatisfaction
+- NumCompaniesWorked
+- JobSatisfaction + 
+- BusinessTravel
+- DistanceFromHome
+- OverTime
+- YearsAtCompany
+- PercentSalaryHike
+- WorkLifeBalance
+- Age
+- YearsWithCurrManager
+- YearsSinceLastPromotion, 
+
+```{r, echo=FALSE, out.width="50%", fig.show='hold'}
+svm_radial.2 <- train(
+  Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
+    BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
+    PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
+    YearsSinceLastPromotion, 
+  data = emp_attrition_train.under, 
+  method = "svmRadial",
+  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
+)
+
+svm_linear.2 <- train(
+  Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
+    BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
+    PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
+    YearsSinceLastPromotion, 
+  data = emp_attrition_train.under, 
+  method = "svmLinear",
+  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
+)
+
+test_pred_radial.2 <- predict(svm_radial.2, newdata = emp_attrition_test.under)
+test_pred_linear.2 <- predict(svm_linear.2, newdata = emp_attrition_test.under)
+
+cm_radial.2 <- confusionMatrix(table(test_pred_radial.2, emp_attrition_test.under$Attrition))
+cm_linear.2 <- confusionMatrix(table(test_pred_linear.2, emp_attrition_test.under$Attrition))
+
+draw_confusion_matrix(cm_radial.2, "SVM Radial (selected predictors) under sampled")
+draw_confusion_matrix(cm_linear.2, "SVM Linear (selected predictors) under sampled")
+```
+
+There doesn't seem to be a significant difference between these two model to the models with all predictors. They both have similar accuracy and specificity, so we can assume that SVM models does not get highly impacted by the variable selection as GLM models did. 
+
+# Neural Network
+
+```{r, warning=FALSE}
+set.seed(111)
+emp_net = train(
+  Attrition ~ .,
+  data=emp_attrition_train,
+  method = "nnet",
+  metric = "ROC",
+  tuneGrid = expand.grid(
+    size = seq(from = 5, to = 10, by = 1),
+    decay = 10^seq(-4, -1, 1)),
+  preProc = c("center", "scale"),
+  trControl = trainControl(
+    method = "cv",
+    number = 10,
+    classProbs = TRUE,
+    summaryFunction = twoClassSummary)
+)
+
+pred_net <- predict(emp_net, emp_attrition_test, type="raw")
+net_table <- table(pred=pred_net, true=emp_attrition_test$Attrition)
+pred_net
+plotnet(emp_net)
+plot(emp_net)
+cm_nn <- confusionMatrix(net_table)
+draw_confusion_matrix(cm_nn, "Neural Network (All predictors)")
+
+pred_raw <- predict(emp_net, emp_attrition_test, decision.values=TRUE, type = "raw")
+
+
+pred <- ROCR::prediction(pred_raw, emp_attrition_test$Attrition)
+perf <- ROCR::performance(pred, measure="tpr", x.measure="fpr")
+plot(perf, lwd=2, col="blue")
+abline(a=0, b=1)
+auc_ROCR <- performance(pred, measure="auc")
+auc_ROCR <- auc_ROCR@y.values[[1]]
+auc_ROCR
+```
+
+
+```{r}
+set.seed(111)
+emp_net = train(
+  Attrition ~ .,
+  data=emp_attrition_train,
+  method = "mlpML",
+  metric = "ROC",
+  tuneGrid = expand.grid(
+    layer1=13,
+    layer2=0,
+    layer3=0
+    ),
+  preProc = c("center", "scale"),
+  trControl = trainControl(
+    method = "cv",
+    number = 10,
+    classProbs = TRUE,
+    summaryFunction = twoClassSummary)
+)
+
+pred_net <- predict(emp_net, emp_attrition_test, type="raw")
+net_table <- table(pred=pred_net, true=emp_attrition_test$Attrition)
+pred_net
+plotnet(emp_net)
+plot(emp_net)
+cm_nn <- confusionMatrix(net_table)
+draw_confusion_matrix(cm_nn, "Neural Network (All predictors)")
+
+pred_raw <- predict(emp_net, emp_attrition_test, decision.values=TRUE, type = "raw")
+
+
+pred <- ROCR::prediction(pred_raw, emp_attrition_test$Attrition)
+perf <- ROCR::performance(pred, measure="tpr", x.measure="fpr")
+plot(perf, lwd=2, col="blue")
+abline(a=0, b=1)
+auc_ROCR <- performance(pred, measure="auc")
+auc_ROCR <- auc_ROCR@y.values[[1]]
+auc_ROCR
+
+```
 # Conclusion
 
 \newpage
