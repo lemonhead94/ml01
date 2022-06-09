@@ -28,8 +28,7 @@ header-includes:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, messages = FALSE)
-packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra", "mgcv", "caret", "vip", "rsample", "tidyverse", "yardstick", "arm", "pROC", "nnet",
-"rsample", "multcomp", "vip", "magicfor")
+packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra", "mgcv", "caret", "vip", "rsample", "tidyverse", "yardstick", "arm", "pROC", "nnet", "NeuralNetTools", "rsample", "multcomp", "vip", "magicfor")
 package.check <- lapply(packages, FUN = function(x) {
     if (!require(x, character.only = TRUE)) {
         install.packages(x, dependencies = TRUE)
@@ -1334,14 +1333,19 @@ There doesn't seem to be a significant difference between these two model to the
 
 # Neural Network
 
-```{r, warning=FALSE}
+## Model Training
+
+We trained a simple neural network by tuning the hidden layer size and decay.
+
+```{r, warning=FALSE, echo=FALSE, include=FALSE}
 set.seed(111)
+
 emp_net = train(
   Attrition ~ .,
   data=emp_attrition_train,
   method = "nnet",
   metric = "ROC",
-  tuneGrid = expand.grid(
+    tuneGrid = expand.grid(
     size = seq(from = 5, to = 10, by = 1),
     decay = 10^seq(-4, -1, 1)),
   preProc = c("center", "scale"),
@@ -1349,70 +1353,49 @@ emp_net = train(
     method = "cv",
     number = 10,
     classProbs = TRUE,
-    summaryFunction = twoClassSummary)
+    summaryFunction = twoClassSummary),
+  allowParallel = TRUE
 )
 
+```
+
+```{r, echo=FALSE}
 pred_net <- predict(emp_net, emp_attrition_test, type="raw")
 net_table <- table(pred=pred_net, true=emp_attrition_test$Attrition)
-pred_net
+
 plotnet(emp_net)
+```
+
+Above figure shows the neural network model with input layer, hidden layer and the output layer. 
+
+```{r, echo=FALSE}
 plot(emp_net)
+```
+
+Above figure is showing the accuracy of each parameters for tuning.
+
+```{r, echo=FALSE}
 cm_nn <- confusionMatrix(net_table)
 draw_confusion_matrix(cm_nn, "Neural Network (All predictors)")
+```
 
-pred_raw <- predict(emp_net, emp_attrition_test, decision.values=TRUE, type = "raw")
+Above is the confusion matrix of the neural network model. As we can see still the specificity of the model is quite low. 
 
+```{r, echo=FALSE}
+pred_raw <- predict(emp_net, emp_attrition_test, decision.values=TRUE, type = "prob")[, 2]
 
 pred <- ROCR::prediction(pred_raw, emp_attrition_test$Attrition)
 perf <- ROCR::performance(pred, measure="tpr", x.measure="fpr")
+
 plot(perf, lwd=2, col="blue")
+title("ROC Curve NN with all predictors")
 abline(a=0, b=1)
-auc_ROCR <- performance(pred, measure="auc")
+auc_ROCR <- ROCR::performance(pred, measure="auc")
 auc_ROCR <- auc_ROCR@y.values[[1]]
-auc_ROCR
+text(x = 0.9, y = 0.1, paste("auc: ",auc_ROCR), 
+     cex = 1.6, col = "black")
 ```
 
-
-```{r}
-set.seed(111)
-emp_net = train(
-  Attrition ~ .,
-  data=emp_attrition_train,
-  method = "mlpML",
-  metric = "ROC",
-  tuneGrid = expand.grid(
-    layer1=13,
-    layer2=0,
-    layer3=0
-    ),
-  preProc = c("center", "scale"),
-  trControl = trainControl(
-    method = "cv",
-    number = 10,
-    classProbs = TRUE,
-    summaryFunction = twoClassSummary)
-)
-
-pred_net <- predict(emp_net, emp_attrition_test, type="raw")
-net_table <- table(pred=pred_net, true=emp_attrition_test$Attrition)
-pred_net
-plotnet(emp_net)
-plot(emp_net)
-cm_nn <- confusionMatrix(net_table)
-draw_confusion_matrix(cm_nn, "Neural Network (All predictors)")
-
-pred_raw <- predict(emp_net, emp_attrition_test, decision.values=TRUE, type = "raw")
-
-
-pred <- ROCR::prediction(pred_raw, emp_attrition_test$Attrition)
-perf <- ROCR::performance(pred, measure="tpr", x.measure="fpr")
-plot(perf, lwd=2, col="blue")
-abline(a=0, b=1)
-auc_ROCR <- performance(pred, measure="auc")
-auc_ROCR <- auc_ROCR@y.values[[1]]
-auc_ROCR
-
-```
 # Conclusion
 
 \newpage
