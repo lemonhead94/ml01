@@ -620,7 +620,6 @@ qqline(lm.YearsAtCompany.1_residuals)#add a straight diagonal line to the plot
 plot(density(lm.YearsAtCompany.1_residuals))
 
 ```
-\newpage
 
 ## Final Linear Model and Verification
 
@@ -1442,7 +1441,7 @@ legend("bottomright", legend=c(
   "Radial SVM under sampled",
   "Linear SVM under sampled"
   ), col = c("blue", "#4daf4a", "#e34a33", "#1c9099"), lwd=2, cex = 0.75)
-title("SVM Model with All Predictors", outer=TRUE)
+title("SVM Model with All Predictors")
 ```
 
 By observing the ROC curve and AUC value of each models we can see Linear SVM under sampled model shows the highest AUC value. 
@@ -1499,7 +1498,7 @@ legend("bottomright", legend=c(
   "Radial SVM under sampled",
   "Linear SVM under sampled"
   ), col = c("blue", "#4daf4a", "#e34a33", "#1c9099"), lwd=2, cex = 0.75)
-title("SVM Model with selected Predictors", outer=TRUE)
+title("SVM Model with selected Predictors")
 ```
 
 By observing the ROC curve and AUC value of each models with selected variables we observe the AUC value is slightly higher but this may not be significant due to small size of data set.
@@ -1628,7 +1627,7 @@ legend("bottomright", legend=c(
   "Linear SVM under sampled with selected Predictors",
   "Neural Network with all Predictors"
   ), col = c("blue", "#4daf4a", "#e34a33", "#1c9099"), lwd=2, cex = 0.75)
-title("SVM Model with selected Predictors", outer=TRUE)
+title("SVM Model with selected Predictors")
 ```
 
 We compared three different category of models (Logistic Regression, SVM, and Neural Network). As our business goal was to have a robust model that can predict both employees with Attrition and without Attrition well, we used AUC value to compare the performance of the model. The result shows that Logistic Regression model with All Predictors had the highest AUC values. 
@@ -1650,7 +1649,5 @@ Of the observed significant influences in Final Linear Model the following seem 
 ```{r session-info}
 sessionInfo()
 ```
-
-\newpage
 
 # References
