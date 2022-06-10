@@ -57,7 +57,7 @@ Employees, according to @IBM_Developer_Challenge_2020, are the foundation of any
 3.  Productivity impact
 4.  Profitability impact
 
-Therefore, IBM data scientists created a fictitious data set as a challenge for data scientists. Among the data types are metrics such as education level, job satisfaction, and commute distance. The dataset can be found on the company's GitHub account [@IBM_Data_2019].
+Therefore, IBM data scientists created a fictitious data set as a challenge for data scientists. Among the data types are metrics such as education level, job satisfaction, and commute distance. The data set can be found on the company's GitHub account [@IBM_Data_2019].
 
 # Methodology
 
@@ -66,7 +66,6 @@ The following topics are layed out through out this paper:
 1.  Linear Models
 2.  Extending the Linear Model: Non-linearity (GAM)
 3.  Extending the Linear Model: Generalised Linear Models (GLM)
-- poisson as well as binominal
 4.  Support Vector Machines
 5.  Neural Networks
 6.  Optimisation
@@ -103,7 +102,7 @@ summary(emp_attrition$DailyRate)
 
 # Department
 emp_attrition$Department <- as.factor(emp_attrition$Department)
-levels(emp_attrition$Department) <- c("Sales", "R&D", "HR")
+levels(emp_attrition$Department) <- c("HR", "R&D", "Sales")
 unique(emp_attrition$Department)
 
 # DistanceFromHome
@@ -275,7 +274,126 @@ As can be observed above we have an almost equal ratio of yes to no in the train
 
 # Exploration
 
-## What else?
+## Jobs
+
+```{r jobs-eda, echo=FALSE, message=FALSE, warning=FALSE}
+emp_attrition %>% 
+  ggplot(aes(y=JobRole, fill=JobLevel)) + 
+  geom_bar(stat="count", position = "dodge") +
+  facet_wrap(~Department)
+```
+
+There seems to be different Job positions for different departments.
+
+**Human Resources Department**
+
+- Human Resources Managers
+- Human Resources 
+
+**Research & Development Department**
+
+- Research Scientist
+- Laboratory Technician
+- Manufacturing Director
+- Healthcare Representative
+- Research Director
+- Research Manager
+
+**Sales Department**
+
+- Sales Executive
+- Sales Representative
+- Sales Manager
+
+
+```{r joblevels-eda, fig.show="hold", out.width = "50%", echo=FALSE, message=FALSE, warning=FALSE}
+emp_attrition %>% 
+  ggplot(aes(y=MonthlyIncome, x=JobLevel, fill=JobLevel)) + 
+  scale_y_continuous(labels = scales::comma) +
+  geom_bar(position = "dodge", stat = "summary", fun = mean) +
+  facet_wrap(~JobRole)
+
+emp_attrition %>% 
+  ggplot(aes(y=MonthlyIncome, x=JobLevel, fill=JobLevel)) + 
+  scale_y_continuous(labels = scales::comma) +
+  geom_boxplot()
+```
+It is clear that the company has quite a hierarchical structure and possibly organigram as different job levels have different monthly income which increase in each job role depending on the job level reached. Furthermore, the job level one segment starts around 2'500 which is most likely for entry positions and reaches up to around 20 thousand monthly for executive positions.
+
+## Age
+
+```{r jobrole-age, fig.show="hold", out.width = "50%", echo=FALSE, message=FALSE, warning=FALSE}
+emp_attrition %>% 
+  ggplot(aes(y=JobRole, x=Age, fill=JobRole)) + 
+  scale_x_continuous(labels = scales::comma) +
+  geom_boxplot() + theme(legend.position="none")
+
+emp_attrition %>% 
+  ggplot(aes(y=JobRole, x=MonthlyIncome, fill=JobRole)) + 
+  scale_x_continuous(labels = scales::comma) +
+  geom_boxplot() + theme(legend.position="none")
+```
+Based on the above box plots one can take a few things away.
+
+- Manager's and Research Director's have the oldest median age
+- They are making the highest median monthly income as well
+- On average sales representatives are the youngest in this dataset and are making the lowest monthly income, this could possibly also be external employee's
+
+## Working Experience
+
+```{r jobrole-workexperience, fig.show="hold", out.width = "50%", echo=FALSE, message=FALSE, warning=FALSE}
+emp_attrition %>% 
+  ggplot(aes(y=JobRole, x=TotalWorkingYears, fill=JobRole)) +
+  scale_x_continuous() +
+  geom_boxplot() + theme(legend.position="none")
+
+emp_attrition %>% 
+  ggplot(aes(y=JobRole, x=YearsAtCompany, fill=JobRole)) +
+  scale_x_continuous() +
+  geom_boxplot() + theme(legend.position="none")
+
+emp_attrition %>% 
+  ggplot(aes(y=JobRole, x=YearsInCurrentRole, fill=JobRole)) +
+  scale_x_continuous() +
+  geom_boxplot() + theme(legend.position="none")
+
+emp_attrition %>% 
+  ggplot(aes(y=JobRole, x=YearsSinceLastPromotion, fill=JobRole)) +
+  scale_x_continuous() +
+  geom_boxplot() + theme(legend.position="none")
+```
+
+- Manager's and Research Director's have the highest total working years and years at the current company, which again makes us think of a very hierarchical company
+- Sales Representatives have the lowest total working years and years at the current company, which leads one to think they either quickly being promoted or don't like the job
+- Years since last promotion is more or less the sames for all the job roles other than managers, which is good sign that people are not leaving the company just because of lacking promotions
+
+## Over Time and Employee Attrition
+
+```{r jobrole-overtime-attrition, fig.show="hold", out.width = "50%", echo=FALSE, message=FALSE, warning=FALSE}
+emp_attrition %>%
+  ggplot(aes(y=Attrition, fill=OverTime)) + 
+  geom_bar(stat="count", position = "dodge") +
+  facet_wrap(~Department) + ggtitle("Department")
+
+emp_attrition %>%
+  ggplot(aes(y=Attrition, fill=OverTime)) + 
+  geom_bar(stat="count", position = "dodge") +
+  facet_wrap(~JobRole) + ggtitle("Job Role")
+
+emp_attrition %>%
+  ggplot(aes(y=Attrition, fill=OverTime)) + 
+  geom_bar(stat="count", position = "dodge") +
+  facet_wrap(~JobLevel) + ggtitle("Job Level")
+
+emp_attrition %>% mutate(Age_class = cut(Age, breaks = seq(10, 70, by = 10))) %>% 
+  filter(Attrition=='Yes') %>%
+  ggplot(aes(y=Attrition, fill=OverTime)) + 
+  geom_bar(stat="count", position = "dodge") +
+  facet_wrap(~Age_class) + ggtitle("Age Groups")
+```
+
+Overall as can be seen in the departments people with overtime have been leaving the company. Moreover it seems R&D and Sales department are most affected by this. When breaking it down even further to job roles one quickly see's that research scientist are most likely to quite due to overtime. In terms of positions entry job level positions are also highly sensitive to overtime. There also seems to be a trend for Senior and Executives, which could hint at a burnout rate. 
+When considering age groups as well people seem to be leaving the company with overtime when they are in their thirties because they are starting a family or have already quite a bit of work experience and quickly may find an other job. 
 
 ## Histograms of variables 
 In this section the distributions of the numerical variables are analyzed visually, also
@@ -382,7 +500,7 @@ according to a significance level of 0.05:
 
   + Age, NumCompaniesWorked, YearsSinceLastPromotion, YearsWithCurrManager
 
-- The specific influence of each variable will be interpreted at a later stage for a better fitting model. 
+- The specific influence of each variable will be interpreted at a later stage for a better fitting model.
 
 ## Linear Model with Log Transformation
 
