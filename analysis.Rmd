@@ -1279,6 +1279,25 @@ draw_confusion_matrix(cm=cm_linear.under, cm_title = "SVM Linear (All predictors
 
 After under sampling the data to have balanced label the perforamnce of both model changed. The accuracy of both model decreased but specificity increased. This indicates that this model is more capable of predicting employee who may have Attrition.
 
+```{r}
+set.seed(111)
+
+par(pty = "s")
+roc(emp_attrition_test$Attrition, as.numeric(test_pred_radial)-1, legacy.axes=TRUE, plot=TRUE, percent=TRUE, print.auc=TRUE, col="blue", xlab="False Positive Percentage", ylab="True Positive Percentage")
+plot.roc(emp_attrition_test$Attrition, as.numeric(test_pred_linear)-1, percent=TRUE, col="#4daf4a", add=TRUE, print.auc=TRUE, print.auc.y=43)
+plot.roc(emp_attrition_test.under$Attrition, as.numeric(test_pred_radial.under)-1, percent=TRUE, col="#e34a33", add=TRUE, print.auc=TRUE, print.auc.y=36.5)
+plot.roc(emp_attrition_test.under$Attrition, as.numeric(test_pred_linear.under)-1, percent=TRUE, col="#1c9099", add=TRUE, print.auc=TRUE, print.auc.y=30)
+legend("bottomright", legend=c(
+  "Radial SVM all data set",
+  "Linear SVM all data set",
+  "Radial SVM under sampled",
+  "Linear SVM under sampled"
+  ), col = c("blue", "#4daf4a", "#e34a33", "#1c9099"), lwd=2, cex = 0.75)
+title("SVM Model with All Predictors")
+```
+
+By observing the ROC curve and AUC value of each models we can see Linear SVM under sampled model shows the highest AUC value. 
+
 ## Variable Selection
 
 In order to compare with other models with how selection of predictor/variable impacts the model performance we trained SVM with selected variables. 
@@ -1299,6 +1318,8 @@ Chosen variables are shown below.
 - YearsSinceLastPromotion, 
 
 ```{r, echo=FALSE, out.width="50%", fig.show='hold'}
+set.seed(111)
+
 svm_radial.2 <- train(
   Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
     BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
@@ -1330,6 +1351,21 @@ draw_confusion_matrix(cm_linear.2, "SVM Linear (selected predictors) under sampl
 ```
 
 There doesn't seem to be a significant difference between these two model to the models with all predictors. They both have similar accuracy and specificity, so we can assume that SVM models does not get highly impacted by the variable selection as GLM models did. 
+
+```{r}
+set.seed(111)
+par(pty = "s")
+roc(emp_attrition_test.under$Attrition, as.numeric(test_pred_radial.2)-1, legacy.axes=TRUE, plot=TRUE, percent=TRUE, print.auc=TRUE, col="blue", xlab="False Positive Percentage", ylab="True Positive Percentage")
+plot.roc(emp_attrition_test.under$Attrition, as.numeric(test_pred_linear.2)-1, percent=TRUE, col="#4daf4a", add=TRUE, print.auc=TRUE, print.auc.y=43)
+legend("bottomright", legend=c(
+  "Radial SVM under sampled",
+  "Linear SVM under sampled"
+  ), col = c("blue", "#4daf4a", "#e34a33", "#1c9099"), lwd=2, cex = 0.75)
+title("SVM Model with selected Predictors")
+```
+
+By observing the ROC curve and AUC value of each models with selected variables we observe the AUC value is slightly higher but this may not be significant due to small size of data set.
+
 
 # Neural Network
 
@@ -1452,7 +1488,7 @@ By observing the ROC curve we can estimate the performance of the model better t
 # Session Information {.unnumbered}
 
 ```{r session-info}
-sessionInfo()
+#sessionInfo()
 ```
 
 \newpage
