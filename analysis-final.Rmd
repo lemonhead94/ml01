@@ -1,0 +1,1438 @@
+---
+output:
+  bookdown::pdf_document2:
+    includes:
+      in_header: latex/preamble.tex
+      before_body: latex/titlepage.tex
+    pandoc_args:
+    - --csl
+    - references/apa.csl
+  bookdown::html_document2:
+    pandoc_args:
+    - --csl
+    - references/apa.csl
+  bookdown::word_document2:
+    pandoc_args:
+    - --csl
+    - references/apa.csl
+toc-title: Table of Contents
+bibliography: references/references.bib
+link-citations: yes
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \renewcommand{\headrulewidth}{0pt}
+- \fancyfoot[C]{}
+- \fancyfoot[R]{\thepage}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, messages = FALSE)
+packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra", "mgcv", "caret", "vip", "rsample", "tidyverse", "yardstick", "arm", "pROC", "nnet",
+"rsample", "multcomp", "vip", "magicfor")
+package.check <- lapply(packages, FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+        install.packages(x, dependencies = TRUE)
+        library(x, character.only = TRUE)
+    }
+})
+```
+
+```{=tex}
+\fancyhead[LR]{}
+\pagenumbering{roman}
+```
+```{=tex}
+\newpage
+\cleardoublepage
+\pagenumbering{arabic}
+\fancyhead[L]{Employee Attrition Model}
+\fancyhead[R]{Machine Learning I}
+```
+# Introduction
+
+Employees, according to @IBM_Developer_Challenge_2020, are the foundation of any business. Its success is largely determined by the quality of its employees and their ability to stay with the company. Organizations confront a number of issues as a result of staff attrition:
+
+1.  Training new personnel is costly in terms of both money and time.
+2.  Potential to lose experienced employees
+3.  Productivity impact
+4.  Profitability impact
+
+Therefore, IBM data scientists created a fictitious data set as a challenge for data scientists. Among the data types are metrics such as education level, job satisfaction, and commute distance. The dataset can be found on the company's GitHub account [@IBM_Data_2019].
+
+# Methodology
+
+The following topics are layed out through out this paper:
+
+1.  Linear Models
+2.  Extending the Linear Model: Non-linearity (GAM)
+3.  Extending the Linear Model: Generalised Linear Models (GLM)
+- poisson as well as binominal
+4.  Support Vector Machines
+5.  Neural Networks
+6.  Optimisation
+
+\newpage
+
+# Data preparation
+
+```{r import-data, echo = FALSE, results = FALSE}
+emp_attrition <- read.csv("./data/emp_attrition.csv")
+head(emp_attrition)
+```
+
+## Data Transformation and Sanity Check
+
+The code for this part is left out from the PDF due to its length...
+
+```{r formatting-data, echo = FALSE, results = FALSE}
+# Age
+summary(emp_attrition$Age)
+
+# Attrition
+emp_attrition$Attrition <- as.factor(emp_attrition$Attrition)
+unique(emp_attrition$Attrition)
+
+# BusinessTravel
+emp_attrition$BusinessTravel <- as.factor(emp_attrition$BusinessTravel)
+levels(emp_attrition$BusinessTravel) <- c("Rarely", "Frequently", "None")
+emp_attrition$BusinessTravel <- relevel(emp_attrition$BusinessTravel, ref = "None")
+unique(emp_attrition$BusinessTravel)
+
+# DailyRate
+summary(emp_attrition$DailyRate)
+
+# Department
+emp_attrition$Department <- as.factor(emp_attrition$Department)
+levels(emp_attrition$Department) <- c("Sales", "R&D", "HR")
+unique(emp_attrition$Department)
+
+# DistanceFromHome
+summary(emp_attrition$DistanceFromHome)
+
+# Education
+emp_attrition$Education <- as.factor(emp_attrition$Education)
+levels(emp_attrition$Education) <- c("Below College", "College", "Bachelor", "Master", "Doctor")
+unique(emp_attrition$Education)
+
+# EducationField
+emp_attrition$EducationField <- as.factor(emp_attrition$EducationField)
+unique(emp_attrition$EducationField)
+
+# EmployeeCount
+unique(emp_attrition$EmployeeCount) # represents headcount which for all employee's in this dataset 1
+
+# EmployeeNumber
+summary(emp_attrition$EmployeeNumber) # internal employee id
+
+# EnvironmentSatisfaction
+emp_attrition$EnvironmentSatisfaction <- as.factor(emp_attrition$EnvironmentSatisfaction)
+levels(emp_attrition$EnvironmentSatisfaction) <- c("Low", "Medium", "High", "Very High")
+unique(emp_attrition$EnvironmentSatisfaction)
+
+# Gender
+emp_attrition$Gender <- as.factor(emp_attrition$Gender)
+unique(emp_attrition$Gender)
+
+# HourlyRate
+summary(emp_attrition$HourlyRate)
+
+# JobInvolvement
+emp_attrition$JobInvolvement <- as.factor(emp_attrition$JobInvolvement)
+levels(emp_attrition$JobInvolvement) <- c("Low", "Medium", "High", "Very High")
+unique(emp_attrition$JobInvolvement)
+
+# JobLevel
+emp_attrition$JobLevel <- as.factor(emp_attrition$JobLevel)
+unique(emp_attrition$JobLevel)
+
+# JobRole
+emp_attrition$JobRole <- as.factor(emp_attrition$JobRole)
+unique(emp_attrition$JobRole)
+
+# JobSatisfaction
+emp_attrition$JobSatisfaction <- as.factor(emp_attrition$JobSatisfaction)
+levels(emp_attrition$JobSatisfaction) <- c("Low", "Medium", "High", "Very High")
+unique(emp_attrition$JobSatisfaction)
+
+# MaritalStatus
+emp_attrition$MaritalStatus <- as.factor(emp_attrition$MaritalStatus)
+unique(emp_attrition$MaritalStatus)
+
+# MonthlyIncome
+summary(emp_attrition$MonthlyIncome)
+
+# MonthlyRate
+summary(emp_attrition$MonthlyRate)
+
+# NumCompaniesWorked
+unique(emp_attrition$NumCompaniesWorked)
+
+# Over18
+unique(emp_attrition$Over18) # all employee's are above 18
+
+# OverTime
+emp_attrition$OverTime <- as.factor(emp_attrition$OverTime)
+unique(emp_attrition$OverTime)
+
+# PercentSalaryHike
+summary(emp_attrition$PercentSalaryHike)
+
+# PerformanceRating
+emp_attrition$PerformanceRating <- as.factor(emp_attrition$PerformanceRating)
+levels(emp_attrition$PerformanceRating) <- c("Excellent", "Outstanding")
+unique(emp_attrition$PerformanceRating) # only employee's who perform 3 or 4
+
+# RelationshipSatisfaction
+emp_attrition$RelationshipSatisfaction <- as.factor(emp_attrition$RelationshipSatisfaction)
+levels(emp_attrition$RelationshipSatisfaction) <- c("Low", "Medium", "High", "Very High")
+unique(emp_attrition$RelationshipSatisfaction)
+
+# StandardHours
+unique(emp_attrition$StandardHours) # the StandardHours for all employee's is 80, after check this means that this data has a 9/80 work schedule. Hence, employees work 80 hours in 9 days. So not a standard as 5/42 as in switzerland..
+
+# StockOptionLevel
+emp_attrition$StockOptionLevel <- as.factor(emp_attrition$StockOptionLevel)
+unique(emp_attrition$StockOptionLevel)
+
+# TotalWorkingYears
+summary(emp_attrition$TotalWorkingYears)
+
+# TrainingTimesLastYear
+unique(emp_attrition$TrainingTimesLastYear)
+
+# WorkLifeBalance
+emp_attrition$WorkLifeBalance <- as.factor(emp_attrition$WorkLifeBalance)
+levels(emp_attrition$WorkLifeBalance) <- c("Bad", "Good", "Better", "Best")
+unique(emp_attrition$WorkLifeBalance)
+
+# YearsAtCompany
+summary(emp_attrition$YearsAtCompany)
+
+# YearsInCurrentRole
+summary(emp_attrition$YearsInCurrentRole)
+
+# YearsSinceLastPromotion
+summary(emp_attrition$YearsSinceLastPromotion)
+
+# YearsWithCurrManager
+summary(emp_attrition$YearsWithCurrManager)
+
+labels(emp_attrition) <- colnames(emp_attrition)
+labels(emp_attrition, which = c("Age", "BusinessTravel", "DailyRate", "DistanceFromHome", "EducationField", "EmployeeNumber", "EnvironmentSatisfaction", "HourlyRate", "JobInvolvement", "JobLevel", "JobRole", "JobSatisfaction", "MaritalStatus", "MonthlyIncome", "MonthlyRate", "NumCompaniesWorked", "OverTime", "PercentSalaryHike", "PerformanceRating", "RelationshipSatisfaction", "StockOptionLevel", "TotalWorkingYears", "TrainingTimesLastYear", "WorkLifeBalance", "YearsAtCompany", "YearsInCurrentRole", "YearsSinceLastPromotion", "YearsWithCurrManager")) <- c("Age (years)", "Business Travel", "Daily Rate (salary per day)", "Distance From Home (1-29)", "Education Field", "Employee ID", "Environment Satisfaction", "Hourly Rate (salary per hour)", "Job Involvement", "Job Level (internal company hierachy 1-5)", "Job Role", "Job Satisfaction", "Marital Status", "Monthly Income", "Monthly Rate (salary per month)", "Number of Companies worked before starting this position", "has done over time", "% Salary Hike", "Performance Rating", "Relationship Satisfaction", "Stock Option Level (number of stocks an employee owns from 0-3)", "Total Working Years", "Number Of Trainings Done Last Year", "Work Life Balance", "Number Of Years At Company", "Number of Years In Current Role", "Number Of Years Since Last Promotion", "Number Of Years With Current Manager")
+```
+
+## Data Cleaning
+
+```{r data-cleaning}
+emp_attrition <- emp_attrition %>% dplyr::select(-c(EmployeeCount, StandardHours, Over18))
+```
+
+-   EmployeeCount (represents the head count which is 1 for all employee, hence drop this)
+-   StandardHours (StandardHours for all employee's is 80, therefore this data has a 9/80 work schedule. Hence, employees work 80 hours in 9 days. So not a standard as 5/42 as in switzerland, we drop this)
+-   Over18 (all employee's are 18 or above and it's capured in age, hence drop this variable)
+
+## Missing Value Check
+
+```{r check-for-missing-values, echo = TRUE, results = FALSE}
+# Do we have any missing values?
+sapply(emp_attrition, function(x) all(is.na(x) | x == '' ))
+```
+
+There are no missing values in this dataset.
+
+\newpage
+
+## Overview of Dataset
+
+```{r numeric-variable-table, echo = FALSE, message = FALSE, results='asis'}
+kable(summarize(emp_attrition, type = "numeric"), 
+      caption = "Summary Numeric Variables", format = "latex", booktabs = TRUE) %>%
+  kable_styling(latex_options = "hold_position")
+```
+
+```{r factor-variable-table, echo = FALSE, message = FALSE, results='asis'}
+summary.factors <- papeR::summarize(emp_attrition, type = "factor")
+kable(list(summary.factors[1:33,], summary.factors[34:66,]), 
+      caption = "Summary Factor Variables", format = "latex", booktabs = TRUE, row.names = FALSE) %>%
+  kable_styling(latex_options = "hold_position", font_size = 5.8)
+```
+
+\newpage
+
+## Splitting Dataset (Stratification)
+
+There is significant class imbalance in the variable Attrition (84 / 16) as can be seen in Table 2, which makes sense since most employees want to work at the company. However it is important to stratify the train and test split so that we receive a more realist estimate on how our model is going to perform.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE }
+set.seed(111)
+emp_attrition_split <- initial_split(emp_attrition, prop = 0.80, strata = "Attrition")
+emp_attrition_train <- training(emp_attrition_split) # i.e. 986 / 189 = 5.22
+emp_attrition_test  <- testing(emp_attrition_split) # i.e. 248 / 48 = 5.17
+```
+
+In this analysis we are splitting the data set with 80% training and 20% test / validation.
+As can be observed above we have an almost equal ratio of yes to no in the training as well as the testing data set due to stratification.
+
+# Exploration
+
+## What else?
+
+## Histograms of variables 
+In this section the distributions of the numerical variables are analyzed visually, also
+in order to evaluate if a variable needs to be log transformed. Therefore, density histograms 
+are displayed for each variable with log transformation(orange) and without transformation(blue).
+
+```{r Dataset in scope, include=FALSE, message=FALSE, warning=FALSE}
+# Dataset variables in scope
+emp_attrition_scope <- emp_attrition[,c("Attrition", "Age", "BusinessTravel",
+                                        "DistanceFromHome", "EnvironmentSatisfaction",
+                                        "JobSatisfaction",
+                                        "NumCompaniesWorked", "OverTime",
+                                        "WorkLifeBalance", "YearsAtCompany",
+                                        "YearsSinceLastPromotion",
+                                        "YearsWithCurrManager")]
+
+```
+
+```{r Histograms, echo=FALSE, fig.show="hold", out.width = "33%"}
+#Selecting numerical variables / extracting names
+emp_attrition_numerical_only <- emp_attrition_scope %>% select_if(is.numeric)
+names_numerical <- colnames(emp_attrition_numerical_only)
+
+#Histogram plots loop
+for (i in 1:ncol(emp_attrition_numerical_only)) {
+  variable <- data.frame(matrix(nrow = 1470, ncol = 1))
+  variable[,1] <- emp_attrition_numerical_only[, i]
+  hist(variable[,1],
+       probability = TRUE, breaks = 25,
+       col = "blue", main = names_numerical[i])
+  lines(density(variable[,1]), lwd = 2, col = "deeppink3")
+  hist(log(variable[,1]), probability = TRUE, breaks = 25,
+       col = "orange", main = names_numerical[i])
+  lines(density(log(variable[,1])), lwd = 2, col = "deeppink3")
+  variable <- data.frame(matrix(nrow = 1470, ncol = 1))
+}
+
+```
+**Findings Histograms:**
+
+- All variables, expect the variable "Years with current Manager", show some sort
+of a right skeewed distribution and might be log transformed.
+
+- The variable "Years with current Manager" seems to display a bimodal distribution
+with two peaks, with the second peak showing right skeewedness. For a linear model, the
+values of the variable could be split around the value 5 to analyse each peak 
+separately, however, this might be most applicable if the residuals of the linear
+model also display a bimodal distribution indicating a strong influence of the variable. 
+
+- The variables "distance from home", "number of companies worked" and "years since 
+last promotion" do not display a normal distribution after the log transformation.
+This will be further considered when building a linear model. 
+\newpage
+
+# Linear Regression
+As it does not make sense to fit a Linear Model to a categorical variable such as Attrition (Levels: Yes/No), the Linear Models and also the General Additive Models will be fitted using YearsAtCompany as the dependent variable. We assume that the longer employees work for a company, the less attrition would actually happen. Therefore, the insight of this chapter might help to fit more complex model to the variable Attrition in the following chapters, but also indicate what leads employees to work longer for an employer. 
+
+## Simple Linear Model
+Before performing a Linear Regression Model, the reference level for the factor variables
+are set to the level with the greatest n-count. Due to the length of the output, only the factor levels of the first two factor variables are displayed here.
+```{r Linear Regression, echo=FALSE}
+# Setup Data sets for LM / GAM part 
+emp_attrition_train_lm <- emp_attrition_train
+emp_attrition_test_lm <- emp_attrition_test
+# Setting factor levels # Output n count of factor levels
+emp_attrition_factors_only <- emp_attrition_train_lm %>% select_if(is.factor)
+names_factor_variables <- colnames(emp_attrition_factors_only)
+# Loop through factor variables
+magic_for(print, silent = TRUE) # call magic_for()
+for (i in 1:ncol(emp_attrition_factors_only)) {
+  variable <- names_factor_variables[i]
+  factor_levels <- table(emp_attrition_factors_only[,i])
+  if (i < 3){ # printing first two iterations
+    put(variable, factor_levels)}
+  else {next}}
+```
+
+```{r Reference Levels, include=FALSE}
+# Setting reference levels to factor with greatest n count if required
+emp_attrition_train_lm$EnvironmentSatisfaction <- relevel(emp_attrition_train_lm$
+                                                        EnvironmentSatisfaction,
+                                                        ref = "High")
+emp_attrition_train_lm$JobSatisfaction <- relevel(emp_attrition_train_lm$JobSatisfaction
+                                              , ref = "High")
+emp_attrition_train_lm$WorkLifeBalance <- relevel(emp_attrition_train_lm$WorkLifeBalance
+                                              , ref = "Better")
+
+```
+
+The first Linear Model is performed including all variables without additional log transformation. As the model formula is included in the output, the code is omitted here.
+```{r LM without log, echo=FALSE}
+# Linear model without log transformation
+lm.YearsAtCompany.0 <- lm(formula=YearsAtCompany ~ ., data = emp_attrition_train_lm)
+lm.summary.0 <- summary(lm.YearsAtCompany.0)
+lm.summary.0
+```
+**Findings LM Model .0:**
+
+- According to the Adjusted R-squared value the model explains 68.48% of the variance of the dependent
+variable.
+
+- Variables with a significant influence on the dependet variable YearsAtCompany,
+according to a significance level of 0.05: 
+
+  + Age, NumCompaniesWorked, YearsSinceLastPromotion, YearsWithCurrManager
+
+- The specific influence of each variable will be interpreted at a later stage for a better fitting model. 
+
+## Linear Model with Log Transformation
+
+In the next step the independent variables which displayed right skeewedness are log transformed for
+a further Linear Model. As the log transformation did create infinity values from log(0) those values
+are changed back to 0. No NaN values are created because there are no negative values in the
+transformed variables. Created NaN values due to log transformation would most likely need to be deleted from a dataset if they can not be replaced by a reasonable value. Furthermore, the reference levels have to be set again for the newly created _log dataset.
+```{r Log Linear Regression setup, results=FALSE}
+# Log transformation of variables that seem to be right skeewed 
+emp_attrition_log <- emp_attrition_train_lm
+emp_attrition_log["Age"] <- log(emp_attrition_log["Age"]) 
+emp_attrition_log["YearsAtCompany"] <- log(emp_attrition_log["YearsAtCompany"])
+emp_attrition_log["YearsWithCurrManager"] <- log(emp_attrition_log["YearsWithCurrManager"])  
+# Na's / -Inf values check after log transformation 
+sum(is.na(emp_attrition_log))
+sum(emp_attrition_log == "-Inf")
+emp_attrition_log[emp_attrition_log == "-Inf"] <- 0
+```
+Output of the log transformed model:
+
+```{r Log Linear Regression, echo=FALSE}
+# Setting reference levels to factor with greatest n count if required
+emp_attrition_log$EnvironmentSatisfaction <- relevel(emp_attrition_log$EnvironmentSatisfaction,
+                                                     ref = "High")
+emp_attrition_log$JobSatisfaction <- relevel(emp_attrition_log$JobSatisfaction, ref = "High")
+emp_attrition_log$WorkLifeBalance <- relevel(emp_attrition_log$WorkLifeBalance, ref = "Better")
+
+# LM All variables, incl. log transformation
+lm.YearsAtCompany.1 <- lm(formula = YearsAtCompany ~ ., data = emp_attrition_log)
+lm.summary.1 <- summary(lm.YearsAtCompany.1)
+lm.summary.1
+```
+**Findings LM Models .1 including log-transformation:**
+
+- Variables with a significant influence on the dependet variable YearsAtCompany,
+according a significance level of 0.05: 
+
+  + Attrition, Age, NumCompaniesWorked, YearsSinceLastPromotion, YearsWithCurrManager.
+  + Compared to the previous model the variable Attrition became additionally significant.
+
+- According to the Adjusted R-squared value, the model explains 71,98% of the variance of the 
+dependent variable displaying an increase of 3.50% compared to the previous model without log transformation.
+
+- Interestingly, the categorical variables, EnvironmentSatisfaction, WorkLifeBalanceGood,
+display almost significant p-values for at least one factor level and will be kept for further modelling too.
+
+- The variable YearsWithCurrentManager was log transformed due to the formely 
+detected right skeewedness of the second peak, which can be reduced by this procedure. Furthermore, it increased also the adjusted R-Squared value of the model. 
+
+- The variables DistanceFromHome, NumberOfCompaniesWorked and YearsSinceLastPromotion are not log transformed because this decreased the obtained Adjusted R-squared value in a trial. 
+
+## Residual Analysis LM Models
+
+**Without log transformation: **
+
+- *Resiudals vs. fitted plot*: The spread of residuals seems to be higher for higher fitted values. 
+Therefore, the normal distributions should be further questioned. 
+
+- *QQ-Plot*: The strayed residuals around higher and lower values indicate that they might not 
+be normally distributed.
+
+- *Density plot*: As the residuals are mainly bell shaped, but also displaying right
+skeewedness, the normal distribution will still be assumed. Furthermore, the formerly mentioned binomial
+distribution of the variable YearsWithCurrentManager seems not to influence 
+the distribution of the residuals heavily. Therefore, the two peaks of the variable
+will not be analyzed separately nor will the data of the variable be split between
+the peaks. A split of the dataset would of course also have further implications
+which can be avoided in this analysis. 
+
+```{r , fig.show="hold", out.width = "33%", echo=FALSE}
+# Without log transformation # get list of residuals
+lm.YearsAtCompany.0_residuals <- resid(lm.YearsAtCompany.0)
+#produce residual vs. fitted plot
+plot(fitted(lm.YearsAtCompany.0), lm.YearsAtCompany.0_residuals)
+abline(0,0) #add a horizontal line at 0 
+#create Q-Q plot for residuals
+qqnorm(lm.YearsAtCompany.0_residuals)
+qqline(lm.YearsAtCompany.0_residuals)#add a straight diagonal line to the plot
+ 
+#Create density plot of residuals
+plot(density(lm.YearsAtCompany.0_residuals))
+
+```
+
+**With log transformation:**
+
+- *Residuals vs. fitted plot*: The spread of residuals for higher fitted values was reduced compared to the model without log transformation. However, the opposite can be observed for lower fitted values. 
+
+- *QQ-Plot*: In this plot the residuals seem better distributed but still strayed
+for higher values. For lower values the assumption of normal distribution seems less appropriate now. 
+
+- *Density plot*: The bell shape is still somehow given, the length of the tails got reduced relatively to the scale. 
+
+```{r, fig.show="hold", out.width = "33%", echo=FALSE}
+# With log transformation
+# get list of residuals
+lm.YearsAtCompany.1_residuals <- resid(lm.YearsAtCompany.1)
+
+#produce residual vs. fitted plot
+plot(fitted(lm.YearsAtCompany.1), lm.YearsAtCompany.1_residuals)
+abline(0,0) #add a horizontal line at 0 
+
+#create Q-Q plot for residuals
+qqnorm(lm.YearsAtCompany.1_residuals)
+qqline(lm.YearsAtCompany.1_residuals)#add a straight diagonal line to the plot
+ 
+#Create density plot of residuals
+plot(density(lm.YearsAtCompany.1_residuals))
+
+```
+\newpage
+
+## Final Linear Model and Verification
+
+**Final Linear Model:** 
+
+For the Final Linear Model only the formerly significant variables are kept, including categorical variables that did display at least one almost significant level. 
+
+```{r Linear Regression selection, echo=FALSE}
+# Significant variables, including categorical variable with at least one factor 
+# level close to significance level
+lm.YearsAtCompany.2 <- lm(YearsAtCompany ~ Attrition +
+                                           Age + 
+                                           EnvironmentSatisfaction +
+                                           NumCompaniesWorked + 
+                                           WorkLifeBalance + 
+                                           YearsSinceLastPromotion +
+                                           YearsWithCurrManager,
+                                           data = emp_attrition_log)
+lm.summary.2 <- summary(lm.YearsAtCompany.2)
+lm.summary.2
+```
+**Interpretation:**
+
+- Adjusted R-squared value: The model is explaining 72.08% of the variance of the dependent 
+variable YearsAtCompany. Compared to the former model including all variables this accounts for a small increase of 0.01% by omitting four variables. 
+
+- Intercept: YearsAtCompany if all other variables were 0 or at the reference level. 
+Given variables such as Age, it is pointless to interpret the intercept for this model. 
+
+**Interpretation of log transformed predictors on log transformed dependent variable:**
+
+- Age: The dependent variable, YearsatCompany, increases by 0.37% years if the Age of an 
+employee increases by 1%. If for example a 40 years old and a 44 years old employee 
+are compared (+10%), the older employee is expected to have worked 3.70% longer at the company. 
+
+- YearsWithCurrManager: The dependent variable, YearsAtCompany, increases by 0.75% if the independent variable increases by 1%. It is not surprising that people seem to prefer consictency in their direct management. 
+
+**Interpretation of numerical predictors on log transformed dependent variable:**
+
+- NumCompaniesWorked: The dependent variable, YearsAtCompany, decreases by -2.34% if the 
+independent variable increases by 1 company. People who changed their employer often in the past might continue to do so. 
+
+- YearsSinceLastPromotion: The dependent variable, YearsAtCompany, increases by 5.50% if 
+the independent variable increases by 1 year. People who might be waiting/expecting a promotion are likely to work longer for a company. 
+
+**Interpretation of categorical predictors on log transformed dependent variable, relevant levels only:**
+
+- EnvironmentSatisfaction: The dependent variable, YearsAtCompany, decreases by 7.03% if the EnvironmentSatisfaction is "low", compared to the reference level "high". People with low EnvironmentSatisfaction are likely to leave the company sooner compared to people with high EnvironmentSatisfaction. 
+
+- WorkLifeBalance: The dependent variable, YearsAtCompany, increases by 6.11% respectively
+by 8.98% if the balance is "good" or even "best", compared to the reference level "better". The better the WorkLifeBalance of employees, the longer they seem to keep working for the company. 
+
+- Attrition: The dependent variable, YearsAtCompany, decreases by 13.72% if an employee left the company. The decrease is not surprising but does not provide much additional insights with the available information. 
+
+**Variable importance plot:**
+
+In the following plot the variables are sorted by importance, variables that influence the dependent variable YearsAtCompany positively are colored cyan, variables that influence it negatively are colored red.
+
+```{r, echo=FALSE, fig.show="hold", out.width="75%",out.height="50%"}
+# Variable importance plot
+vip(lm.YearsAtCompany.2, mapping = aes_string(fill = "Sign"))
+```
+\newpage
+
+**Verification:**
+
+As a first verification step a strict model is fitted, only including the variables below the significance level 0.05.
+
+```{r, echo=FALSE}
+# Strict model based on model .2
+lm.YearsAtCompany.3 <- update(lm.YearsAtCompany.2, .~. - EnvironmentSatisfaction 
+                              - WorkLifeBalance)
+lm.summary.3 <- summary(lm.YearsAtCompany.3)
+lm.summary.3
+```
+
+**Interpretation:**
+
+- Only slight decrease of adjusted R-squared compared to the previous model by excluding 3 variables.
+
+- However, when looking at the "Residual Sums of Squares" (RSS) in the *Analysis of Variance Table* below it becomes apparent that the previous model did explain slightly more of the variance of the dependent variable YearsAtCompany. Therefore, the more complex final model will be investigated further in the next section using a General Additive Models. 
+
+```{r, echo=FALSE}
+# Comparison
+anova(lm.YearsAtCompany.2, lm.YearsAtCompany.3)
+```
+
+**Verification of the final model with the test data set:**
+
+To test the final model with the test data, the test data set is equivalently transformed as the training data set. This includes the log transformation of 3 variables, including the dependent variable, setting infinity values to 0 and setting the reference level to the level with the greatest n-count.
+
+```{r Verification LM, include=FALSE}
+# Verification of model .2 with test data
+# Log transformation
+emp_attrition_test_lm["Age"] <- log(emp_attrition_test_lm["Age"]) 
+emp_attrition_test_lm["YearsAtCompany"] <- log(emp_attrition_test_lm["YearsAtCompany"])
+emp_attrition_test_lm["YearsWithCurrManager"] <- log(emp_attrition_test_lm["YearsWithCurrManager"])  
+# Na's / -Inf values check after log transformation # Back to 0
+sum(is.na(emp_attrition_test_lm)) # 0
+sum(emp_attrition_test_lm == "-Inf") #240
+emp_attrition_test_lm[emp_attrition_test_lm == "-Inf"] <- 0
+# Setting reference levels
+emp_attrition_test_lm$EnvironmentSatisfaction <- relevel(emp_attrition_test_lm$
+                                                      EnvironmentSatisfaction,
+                                                      ref = "High")
+emp_attrition_test_lm$WorkLifeBalance <- relevel(emp_attrition_test_lm$WorkLifeBalance,
+                                              ref = "Better")
+```
+```{r Verification LM Test data, echo=FALSE}
+# Fitting Model
+lm.YearsAtCompany.test <- update(lm.YearsAtCompany.2, data = emp_attrition_test_lm)
+lm.summary.test <- summary(lm.YearsAtCompany.test)
+lm.summary.test
+```
+
+
+**Interpretation:**
+
+- The model reaches a slighty higher Adjusted R-squared value of 73.10% applied on the test data set.
+
+- However, the variable Attrition ist just barely not significant anymore when considering the 0.05 significance level and also the other categorical variables loose in significance even more strongly. 
+
+- Overall, the model seems to be still applicable to the test set, however, as the test data set is significantly smaller than the training data set, some effects seem to fade. 
+
+# General Additive Model
+
+Generalised Additive Models (GAMs) are an adaptation that allows to model non-linear data while maintaining explainability. In a first step the relationship between the dependent variable YearsAtCompany with the independent variables are analyzed visually and interpreted to verify whether a smooth term, e.g. for a quadratic or cubic relationship, would need to be included in a model. As it is an extension of the linear model, the variables Age, YearsAtCompany and YearsWithCurrentManager are kept as log transformed variables. 
+
+```{r GAM Exploration YearsAtCompany, warning=FALSE, message=FALSE, echo=FALSE, fig.show="hold", out.width = "33%"}
+# Dataset Numerical for visualisation
+emp_attrition_gam <- emp_attrition_log %>% select_if(is.numeric)
+names_variables <- colnames(emp_attrition_gam)
+# Exploration regarding relationship with dependent variable 
+magic_for(print, silent = FALSE) 
+for (i in 1:6){
+  if (i == 4) { next }
+  else{
+  variable <- data.frame(matrix(nrow = 1175, ncol = 2))
+  variable[,1] <- emp_attrition_gam[,4]
+  variable[,2] <- emp_attrition_gam[,i]
+  print(ggplot(data = variable,
+          mapping = aes(y = variable[,1],
+          x = variable[,2])) +
+          geom_point() +
+          geom_smooth(method = "gam") +
+          ggtitle(names_variables[i]) +
+          xlab(names_variables[i]) +
+          ylab(names_variables[4]))}
+}
+```
+
+**Interpretation of relationship of YearAtCompany ~ Variable:**
+
+- Age: The relationship might be quadratic. 
+
+- DistancefromHome: The relationship seems to be constant. It therefore does not surprise that this variable was excluded in the previous linear model. It will be excluded from the General Additive Model as well. 
+
+- NumCompaniesWorked: The relationship might be quadratic.
+
+- YearSinceLastPromotion: The relationship seems to be rather complex than linear.
+
+- YearsWithCurrManager: The relationship seems to be more or less linear but with a few imperfections.
+
+**General Additive model with smooth terms:**
+
+When the General Additive model is fitted to the same data set as the final model, assuming a "Gaussian" distribution, it returns the same output as for the final linear model. Therefore, we include smooth terms for the numerical variables in the following model. When testing including smooth terms variable by variable, it did increase the Adjusted R-squared value each time. By design, the model does choose the appropriate degree of complexity for the smooth terms itself as it is unknown to the user in most cases. 
+
+```{r, echo=FALSE}
+# General Additive Model; YearsAtCompany
+gam.01 <- gam(YearsAtCompany ~  Attrition +
+                                s(Age) +
+                                EnvironmentSatisfaction +
+                                s(NumCompaniesWorked) +
+                                WorkLifeBalance +
+                                s(YearsSinceLastPromotion) +
+                                s(YearsWithCurrManager), 
+                                data = emp_attrition_log,
+                                family = "gaussian")
+
+summary(gam.01)
+```
+
+**Interpretation:**
+
+- The model reaches an Adjusted R squared value of 74.20%, which is slightly higher as the final linear model. 
+
+- Variables with a significant effect on the dependent variable according to a significance level of 0.05:
+
+  + Attrition, Age, NumCompaniesWorked, YearsSinceLastPromotion and YearsWithCurrentManager just as in     the final linear model. 
+
+- For the numerical predictors Age, NumCompaniesWorked, YearsSinceLastPromotion and YearsWithCurrentManager, there is a strong evidence, that the variables have a non-linear effect on the dependent variable, according to the estimated degrees of freemdom (edf). A edf of 1 would indicate a linear relationship.
+
+- As there seem to be strong non-linear effects, the influence of the numerical variables can not be interpreted as simple as for the linear model and will not be regarded here. 
+
+In the next step this General Additive Model is verified by using the test-dataset, for which the log transformation and setting of reference levels was perfomed at an earlier stage.  
+
+```{r, echo=FALSE}
+# General Additive Model; YearsAtCompany, Test data
+gam.test <- update(gam.01, data = emp_attrition_test_lm) 
+                          
+summary(gam.test)
+```
+
+**Interpretation:**
+
+- The Adjusted R-squared value is close to the equivalent value of the GAM performed on the training data set. 
+
+- However, the variable Attrition is not significant anymore if a significance level of 0.05 is applied, along with the categorical variables EnvironmentSatisfaction and WorkLifeBalance loosing in significance too. The same effects were noticed when testing the final linear model on the smaller test data set. 
+
+- Interestingly, the smoothed numerical variables are still significant but display quite different edf values. For the variable YearsSinceLastPromotion a simple linear relationship would have been adequate for the test model, altough, a smooth term seemed appropriate in the trial for the previous General Additive Model.
+
+**Evaluation GAM vs. Final Linear Model:**
+
+Overall, the general additive model performs slighty better on the training dataset and also when applied to the test dataset, if measured by the returned Adjusted R-squared values. Similar effects are displayed for the fading of influence of the categorical variables Attrition, EnvironmentSatisfaction and WorkLifeBalance on the dependent variable YearsAtCompany for both approaches, when fitted to the smaller test dataset. The smoothed terms in the General Additive model seem to fit the numerical variables slightly better, however, taking into account that the effects of the variables can be interpeted quite straightforward in the linear model, the final linear model seems to fit the attrition data sets sufficiently. 
+
+\newpage
+
+# Generalised Linear Models
+
+## Simple Logistic Regression
+
+```{r}
+attrition_model1 <- glm(Attrition ~ OverTime, family = "binomial", data = emp_attrition)
+summary(attrition_model1)$coefficients
+```
+Not unexpectedly overtime seems to play a relevant role. Indeed, its p-value is highly significant.
+
+```{r attrition_vs_overtime, out.width = "50%", echo=FALSE}
+ggplot(emp_attrition, aes(OverTime, attrition_model1$fitted.values, color = OverTime)) +
+  geom_boxplot(show.legend = FALSE) +
+  geom_rug(sides = "b", position = "jitter", alpha = 0.2, show.legend = FALSE) +
+  labs(title="Attrition ~ OverTime", x="OverTime", y="Probability of Attrition")
+```
+
+```{r}
+exp(coef(attrition_model1)["OverTimeYes"])
+```
+
+The odds of someone leaving the company with overtime are about ~3.8 times higher than the odds for no overtime in this simple model.
+
+
+## Multiple logistic regression
+
+```{r variable_importance_multiple_logistic_regression, echo=FALSE, message=FALSE, warning=FALSE, out.width = "50%" }
+glm.model <- glm(Attrition ~ ., family = "binomial", data = emp_attrition_train)
+vi(glm.model) %>%
+  filter(Sign == 'POS') %>%
+  ggplot(aes(x = Importance, y = reorder(Variable, +Importance))) + 
+  geom_bar(stat = "identity", fill='#01bfc4') + theme(legend.position="none") + 
+  ylab("")
+
+vi(glm.model) %>%
+  filter(Sign == 'NEG') %>%
+  ggplot(aes(x = Importance, y = reorder(Variable, +Importance), fill = Sign)) + 
+  geom_bar(stat = "identity") + theme(legend.position="none") + ylab("")
+```
+
+In the above plots we can observe the most important variables (Variable Importance) to predict employment attrition according to the absolute value of the z-statistic for each coefficient in the dataset. Moreover the importance of independent variables are colored to indicate increasing (blue) or decreasing (red) risk of employee attrition. We again observe that OverTime seems to be highly correlated with employee attrition in this data set. Moreover, EnviromentSatisfaction and JobSatisfaction seem to be also be critical, which would make sense since we are talking about employment attrition.
+
+Based on the exploratory data analysis, the previous section as well as the above variable importance scores we are trying to fit a better multiple logistic regression model.
+
+```{r multiple_logistic_regression_refined}
+glm.model.2 <- glm(Attrition ~ OverTime + EnvironmentSatisfaction + NumCompaniesWorked + 
+                     JobSatisfaction + BusinessTravel + DistanceFromHome + 
+                     WorkLifeBalance + Age + YearsWithCurrManager + YearsSinceLastPromotion, 
+                   family = "binomial", data = emp_attrition_train)
+```
+
+The new model seems to have quite a good fit with all independent variables having significant p-values.
+
+```{r variable_importance_multiple_logistic_regression_refined, echo=FALSE}
+vip(glm.model.2, num_features = 30, horizontal = TRUE, 
+          mapping = aes_string(fill = "Sign"))
+```
+The new variable importance plot seems to have ranked Age a lot higher than before while overtime still seems to remain a large main effect. Thus, there might be interactions in these variable and we should start developing the model.
+
+\newpage
+## Model Development
+
+The code for the model development is hidden since it is to large for this paper.
+
+```{r model-development, echo=FALSE, results=FALSE, warning=FALSE}
+glm.model.2 <- glm(Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + 
+                     JobSatisfaction + BusinessTravel + DistanceFromHome + 
+                     WorkLifeBalance + YearsWithCurrManager + 
+                     YearsSinceLastPromotion + Age + OverTime +
+                     # interactions of Age
+                     Age:EnvironmentSatisfaction +
+                     Age:NumCompaniesWorked +
+                     Age:JobSatisfaction +
+                     Age:BusinessTravel +
+                     Age:DistanceFromHome +
+                     Age:WorkLifeBalance +
+                     Age:YearsWithCurrManager +
+                     Age:YearsSinceLastPromotion +
+                     Age:OverTime, 
+                   family = "binomial", data = emp_attrition_train)
+
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ . - EnvironmentSatisfaction:Age - NumCompaniesWorked:Age - DistanceFromHome:Age - WorkLifeBalance:Age - YearsSinceLastPromotion:Age)
+
+glm.model.2 <- update(glm.model.2, . ~ . + OverTime:EnvironmentSatisfaction +
+                     OverTime:NumCompaniesWorked +
+                     OverTime:JobSatisfaction +
+                     OverTime:BusinessTravel +
+                     OverTime:DistanceFromHome +
+                     OverTime:WorkLifeBalance +
+                     OverTime:YearsWithCurrManager +
+                     OverTime:YearsSinceLastPromotion)
+
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ . - OverTime:EnvironmentSatisfaction
+                     - OverTime:NumCompaniesWorked
+                     - OverTime:JobSatisfaction
+                     - OverTime:BusinessTravel
+                     - OverTime:DistanceFromHome
+                     - OverTime:WorkLifeBalance
+                     - OverTime:YearsWithCurrManager
+                     - OverTime:YearsSinceLastPromotion
+                     - OverTime:Age
+                     - BusinessTravel:Age)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + EnvironmentSatisfaction:NumCompaniesWorked
+                     + EnvironmentSatisfaction:JobSatisfaction
+                     + EnvironmentSatisfaction:BusinessTravel
+                     + EnvironmentSatisfaction:DistanceFromHome
+                     + EnvironmentSatisfaction:WorkLifeBalance
+                     + EnvironmentSatisfaction:YearsWithCurrManager
+                     + EnvironmentSatisfaction:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - EnvironmentSatisfaction:NumCompaniesWorked
+                     - EnvironmentSatisfaction:JobSatisfaction
+                     - EnvironmentSatisfaction:BusinessTravel
+                     - EnvironmentSatisfaction:DistanceFromHome
+                     - EnvironmentSatisfaction:WorkLifeBalance
+                     - EnvironmentSatisfaction:YearsWithCurrManager
+                     - EnvironmentSatisfaction:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + NumCompaniesWorked:NumCompaniesWorked
+                     + NumCompaniesWorked:JobSatisfaction
+                     + NumCompaniesWorked:BusinessTravel
+                     + NumCompaniesWorked:DistanceFromHome
+                     + NumCompaniesWorked:WorkLifeBalance
+                     + NumCompaniesWorked:YearsWithCurrManager
+                     + NumCompaniesWorked:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - NumCompaniesWorked:NumCompaniesWorked
+                     - NumCompaniesWorked:JobSatisfaction
+                     - NumCompaniesWorked:BusinessTravel
+                     - NumCompaniesWorked:DistanceFromHome
+                     - NumCompaniesWorked:WorkLifeBalance
+                     - NumCompaniesWorked:YearsWithCurrManager
+                     - NumCompaniesWorked:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + JobSatisfaction:NumCompaniesWorked
+                     + JobSatisfaction:JobSatisfaction
+                     + JobSatisfaction:BusinessTravel
+                     + JobSatisfaction:DistanceFromHome
+                     + JobSatisfaction:WorkLifeBalance
+                     + JobSatisfaction:YearsWithCurrManager
+                     + JobSatisfaction:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - JobSatisfaction:BusinessTravel
+                     - JobSatisfaction:DistanceFromHome
+                     - JobSatisfaction:YearsWithCurrManager
+                     - JobSatisfaction:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + BusinessTravel:NumCompaniesWorked
+                     + BusinessTravel:JobSatisfaction
+                     + BusinessTravel:DistanceFromHome
+                     + BusinessTravel:WorkLifeBalance
+                     + BusinessTravel:YearsWithCurrManager
+                     + BusinessTravel:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - BusinessTravel:NumCompaniesWorked
+                     - BusinessTravel:DistanceFromHome
+                     - BusinessTravel:WorkLifeBalance
+                     - BusinessTravel:YearsWithCurrManager
+                     - BusinessTravel:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + DistanceFromHome:NumCompaniesWorked
+                     + DistanceFromHome:JobSatisfaction
+                     + DistanceFromHome:BusinessTravel
+                     + DistanceFromHome:WorkLifeBalance
+                     + DistanceFromHome:YearsWithCurrManager
+                     + DistanceFromHome:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - DistanceFromHome:NumCompaniesWorked
+                     - DistanceFromHome:JobSatisfaction
+                     - DistanceFromHome:BusinessTravel
+                     - DistanceFromHome:WorkLifeBalance
+                     - DistanceFromHome:YearsWithCurrManager
+                     - DistanceFromHome:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + WorkLifeBalance:NumCompaniesWorked
+                     + WorkLifeBalance:JobSatisfaction
+                     + WorkLifeBalance:BusinessTravel
+                     + WorkLifeBalance:YearsWithCurrManager
+                     + WorkLifeBalance:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - WorkLifeBalance:NumCompaniesWorked
+                     - WorkLifeBalance:BusinessTravel
+                     - WorkLifeBalance:YearsWithCurrManager
+                     - WorkLifeBalance:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + YearsWithCurrManager:NumCompaniesWorked
+                     + YearsWithCurrManager:JobSatisfaction
+                     + YearsWithCurrManager:BusinessTravel
+                     + YearsWithCurrManager:YearsSinceLastPromotion)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - YearsWithCurrManager:NumCompaniesWorked
+                     - YearsWithCurrManager:JobSatisfaction
+                     - YearsWithCurrManager:BusinessTravel)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     + YearsSinceLastPromotion:NumCompaniesWorked
+                     + YearsSinceLastPromotion:JobSatisfaction
+                     + YearsSinceLastPromotion:BusinessTravel
+                     + YearsSinceLastPromotion:DistanceFromHome
+                     + YearsSinceLastPromotion:WorkLifeBalance
+                     + YearsSinceLastPromotion:YearsWithCurrManager)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ .
+                     - YearsSinceLastPromotion:NumCompaniesWorked
+                     - YearsSinceLastPromotion:JobSatisfaction
+                     - YearsSinceLastPromotion:BusinessTravel
+                     - YearsSinceLastPromotion:DistanceFromHome
+                     - YearsSinceLastPromotion:WorkLifeBalance
+                     - YearsSinceLastPromotion:YearsWithCurrManager)
+drop1(glm.model.2, test = "F")
+
+glm.model.2 <- update(glm.model.2, . ~ . - Age:YearsWithCurrManager)
+drop1(glm.model.2, test = "F")
+```
+By using the drop1 function we have added and remove significant interactions.
+Finally we end up with significant interaction inclusion of JobSatifaction with Age, Number of Companies Worked for, Work Life Balance and Business Travel Frequency.
+
+```{r}
+final.glm <- glm(Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
+    BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
+    PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
+    YearsSinceLastPromotion + 
+    JobSatisfaction:Age + JobSatisfaction:NumCompaniesWorked + 
+    JobSatisfaction:WorkLifeBalance + JobSatisfaction:BusinessTravel, family = "binomial", data = emp_attrition_train)
+# exp(coef(final.glm))
+```
+
+**Interpretation of the Logistic Regression**
+
+The odds of someone leaving the company 
+
+  - with overtime are about ~5.6 times higher than the odds for no overtime
+  
+  - with a 'very high' environment satisfaction are lower than the ones of low environment satisfaction by ~0.31 times.
+  - with a 'high' environment satisfaction are lower than the ones of low environment satisfaction by ~0.37 times. 
+  - with a 'medium' environment satisfaction are lower than the ones of low environment satisfaction by ~0.38 times. 
+  
+  - are multiplied by 1.19 i.e increasing for each additional company the employee has worked for
+  
+  - with a 'very high' job satisfaction are lower than the ones of low job satisfaction by ~0.009 times.
+  - with a 'high' job satisfaction are lower than the ones of low job satisfaction by ~0.12 times.
+  - with a 'medium' job satisfaction are lower than the ones of low job satisfaction by ~0.04 times.
+  
+  - having to travel for work 'rarely' increases the risk by ~1.38 times
+  - having to travel for work 'frequently' increases the risk by ~2.04 times
+  
+  - are multiplied by 1.03 i.e increasing for each unit of distance between work and home
+  
+  - are multiplied by 0.97 i.e slightly decreasing for each additional year the employee has worked at the company
+  
+  - are multiplied by 0.99 i.e slightly decreasing for each percentage in salary hike an employee has received
+  
+  - with a 'good' work life balance score are lower than the ones of 'bad' work life balance score by ~0.11 times.
+  - with a 'better' work life balance score are lower than the ones of 'bad' work life balance score by ~0.11 times.
+  - with a 'best' work life balance score are lower than the ones of 'bad' work life balance score by ~0.12 times.
+
+  - are multiplied by 0.9 i.e decreasing for each additional year of age an employee has
+  
+  - are multiplied by 0.86 i.e decreasing for each additional year an employee has worked for the same manager
+  
+  - are multiplied by 1.17 i.e increasing for each year an employee has not received a promotion
+  
+**Summary**
+
+*Overtime* seems to increase the risk of attrition by almost six times as much and is by far the most highly critical attribute on whether an employee continues to stay at the company or not. 
+It does not seem to matter to much how well the *job environment* score is as long as it is above 'low' as they almost equally decrease the risk of someone leaving the company. The amount of *business traveling* an employee has to do seems to play an important role as well as the risk of someone quitting the company increases by two times if said person has frequently travel for work. *Age* seems to play a role as well as young employee seem to leave the company more often than old employees. Employee seem to leave the company less often if they are not bound to re-organisations i.e. have the same *manager* for an extended period of time. For each year an employee has not received a *promotion* the risk of them leaving increases.
+
+
+## Confusion Matrix
+
+```{r confusion-matrix, echo=FALSE, message=FALSE, warning=FALSE, out.width = "33%"}
+set.seed(111)
+cv_glm.model <- train(
+  Attrition ~ ., 
+  data = emp_attrition_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10) # 10 fold cross validation
+)
+
+emp_attrition_results <- emp_attrition_test %>%
+        mutate(`Logistic regression` = predict(cv_glm.model, emp_attrition_test))
+
+# confusion matrix
+conf_mat(emp_attrition_results, truth = Attrition, estimate = `Logistic regression`) %>% 
+  autoplot(type = "heatmap") + ggplot2::ggtitle("1. All Predictors")
+
+cv_glm.model.2 <- train(
+  Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
+    BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
+    PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
+    YearsSinceLastPromotion, 
+  data = emp_attrition_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10) # 10 fold cross validation
+)
+
+emp_attrition_results.2 <- emp_attrition_test %>%
+        mutate(`Logistic regression` = predict(cv_glm.model.2, emp_attrition_test))
+
+# confusion matrix
+conf_mat(emp_attrition_results.2, truth = Attrition, estimate = `Logistic regression`) %>% 
+  autoplot(type = "heatmap") + ggplot2::ggtitle("2. Multiple Logistic Regression w/o interactions")
+
+cv_glm.model.3 <- train(
+  Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
+    BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
+    PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
+    YearsSinceLastPromotion + 
+    JobSatisfaction:Age + JobSatisfaction:NumCompaniesWorked + 
+    JobSatisfaction:WorkLifeBalance + JobSatisfaction:BusinessTravel, 
+  data = emp_attrition_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10) # 10 fold cross validation
+)
+
+emp_attrition_results.3 <- emp_attrition_test %>%
+        mutate(`Logistic regression` = predict(cv_glm.model.3, emp_attrition_test))
+
+# confusion matrix
+conf_mat(emp_attrition_results.3, truth = Attrition, estimate = `Logistic regression`) %>% 
+  autoplot(type = "heatmap") + ggplot2::ggtitle("3. Multiple Logistic Regression w/ interactions")
+
+cv_glm.model.0 <- train(
+  Attrition ~ OverTime, 
+  data = emp_attrition_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10) # 10 fold cross validation
+)
+```
+
+1. When looking at the first plot using cross validation & including all predictors we get the following scores.
+
+
+    *Sensitivity* = True Negatives / (True Negatives + False Positives)
+
+    - i.e. 237 / (10 + 237) = 0.95
+    - 95% of the people not leaving the company were correctly identified by the Logistic Regression model.
+
+
+    *Specificity* = True Positives / (True Positives + False Negatives)
+
+    - i.e. 19 / (29 + 19) = 0.4
+    - 40% of the people leaving the company were correctly identified by the Logistic Regression model.
+
+2. Without interactions using a much simpler model we actually get a better specificity, but can only predict 23% of the people who are actually leaving the company. In other words the True Positive Rate which we are looking for is significantly worse.
+
+
+    *Sensitivity* = 239 / (8 + 239) = 0.97
+  
+    - 97% of the people not leaving the company were correctly identified by the Logistic Regression model.
+
+
+    *Specificity* = 11 / (37 + 11) = 0.23
+  
+    - 23% of the people leaving the company were correctly identified by the Logistic Regression model.
+
+3. When including the interactions we are able to predict the True Positive Rate a bit better however we sacrifice some of the specificity
+
+
+    *Sensitivity* = 235 / (12 + 235) = 0.95
+  
+    - 95% of the people not leaving the company were correctly identified by the Logistic Regression model.
+
+
+    *Specificity* = 12 / (36 + 12) = 0.25
+  
+    - 25% of the people leaving the company were correctly identified by the Logistic Regression model.
+
+
+## Receiver Operating Characteristics
+
+```{r roc, echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hold'}
+set.seed(111)
+cv_glm.probability <- predict(cv_glm.model, emp_attrition_test, type = "prob")$Yes
+roc.info <- roc(emp_attrition_test$Attrition, cv_glm.probability, legacy.axes=TRUE)
+roc.df <- data.frame(tpp=roc.info$sensitivities*100, 
+                     fpp=(1-roc.info$specificities)*100,
+                     thresholds=roc.info$thresholds)
+
+# calculating the probability
+cv_glm.probability.2 <- predict(cv_glm.model.2, emp_attrition_test, type = "prob")$Yes
+cv_glm.probability.3 <- predict(cv_glm.model.3, emp_attrition_test, type = "prob")$Yes
+cv_glm.probability.0 <- predict(cv_glm.model.0, emp_attrition_test, type = "prob")$Yes
+
+# plotting ROC
+par(pty = "s")
+roc(emp_attrition_test$Attrition, cv_glm.probability, plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", ylab="True Positive Percentage", col="blue", print.auc=TRUE)
+plot.roc(emp_attrition_test$Attrition, cv_glm.probability.3, percent=TRUE, col="#4daf4a", add=TRUE, print.auc=TRUE, print.auc.y=43)
+plot.roc(emp_attrition_test$Attrition, cv_glm.probability.2, percent=TRUE, col="#e34a33", add=TRUE, print.auc=TRUE, print.auc.y=36.5)
+plot.roc(emp_attrition_test$Attrition, cv_glm.probability.0, percent=TRUE, col="#1c9099", add=TRUE, print.auc=TRUE, print.auc.y=30)
+legend("bottomright", legend=c("Model w/ all predictors", "Model Development with interactions", "Model Development no interactions",  "Simple Model (w/ OverTime)"), col = c("blue", "#4daf4a", "#e34a33", "#1c9099", "#1c9099"), lwd=2, cex = 0.75)
+```
+
+The above plot illustrates how the True Positive Rate (Sensitivity) behaves in relation with the False Positive Rate (1-Specificity).
+In this paper we want to maximize the amount of correct classifications of people leaving the company i.e. True Positive Rate.
+
+Thus we can take away from the above plot that including the interactions does not make to much sense since with a very similar False Positive Rate (around 25-30%) with a much simpler model (12 independent variables & 4 interactions vs 31 total independent variables). 
+
+\newpage
+
+# Support Vector Machine
+
+## Model Training
+
+With same training testing data set from above models we will train two different type of SVM model Linear and Radia and observe its performance.
+
+```{r , echo=FALSE, message=FALSE, warning=FALSE}
+draw_confusion_matrix <- function(cm, cm_title) {
+  layout(matrix(c(1,1,2)))
+  par(mar=c(2,2,2,2))
+  plot(c(100, 345), c(300, 450), type = "n", xlab="", ylab="", xaxt='n', yaxt='n')
+  title(cm_title, cex.main=2)
+
+  # create the matrix 
+  rect(150, 430, 240, 370, col='#3F97D0')
+  text(195, 435, 'No', cex=1.2)
+  rect(250, 430, 340, 370, col='#F7AD50')
+  text(295, 435, 'Yes', cex=1.2)
+  text(125, 370, 'Predicted', cex=1.3, srt=90, font=2)
+  text(245, 450, 'Actual', cex=1.3, font=2)
+  rect(150, 305, 240, 365, col='#F7AD50')
+  rect(250, 305, 340, 365, col='#3F97D0')
+  text(140, 400, 'No', cex=1.2, srt=90)
+  text(140, 335, 'Yes', cex=1.2, srt=90)
+
+  # add in the cm results 
+  res <- as.numeric(cm$table)
+  text(195, 400, res[1], cex=1.6, font=2, col='white')
+  text(195, 335, res[2], cex=1.6, font=2, col='white')
+  text(295, 400, res[3], cex=1.6, font=2, col='white')
+  text(295, 335, res[4], cex=1.6, font=2, col='white')
+
+  # add in the specifics 
+  plot(c(100, 0), c(100, 0), type = "n", xlab="", ylab="", main = "DETAILS", xaxt='n', yaxt='n')
+  text(10, 85, names(cm$byClass[1]), cex=1.2, font=2)
+  text(10, 70, round(as.numeric(cm$byClass[1]), 3), cex=1.2)
+  text(30, 85, names(cm$byClass[2]), cex=1.2, font=2)
+  text(30, 70, round(as.numeric(cm$byClass[2]), 3), cex=1.2)
+  text(50, 85, names(cm$byClass[5]), cex=1.2, font=2)
+  text(50, 70, round(as.numeric(cm$byClass[5]), 3), cex=1.2)
+  text(70, 85, names(cm$byClass[6]), cex=1.2, font=2)
+  text(70, 70, round(as.numeric(cm$byClass[6]), 3), cex=1.2)
+  text(90, 85, names(cm$byClass[7]), cex=1.2, font=2)
+  text(90, 70, round(as.numeric(cm$byClass[7]), 3), cex=1.2)
+
+  # add in the accuracy information 
+  text(30, 35, names(cm$overall[1]), cex=1.5, font=2)
+  text(30, 20, round(as.numeric(cm$overall[1]), 3), cex=1.4)
+  text(70, 35, names(cm$overall[2]), cex=1.5, font=2)
+  text(70, 20, round(as.numeric(cm$overall[2]), 3), cex=1.4)
+}
+
+set.seed(111)
+
+svm_radial <- train(
+  Attrition ~ .,
+  data = emp_attrition_train,
+  method = "svmRadial",
+  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
+)
+
+svm_linear <- train(
+  Attrition ~ .,
+  data = emp_attrition_train,
+  method = "svmLinear",
+  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
+)
+
+test_pred_radial <- predict(svm_radial, newdata = emp_attrition_test)
+test_pred_linear <- predict(svm_linear, newdata = emp_attrition_test)
+
+cm_radial <- confusionMatrix(table(test_pred_radial, emp_attrition_test$Attrition))
+cm_linear <- confusionMatrix(table(test_pred_linear, emp_attrition_test$Attrition))
+```
+
+```{r, echo=FALSE, out.width="50%", fig.show='hold'}
+draw_confusion_matrix(cm=cm_radial, cm_title = 'SVM Radial (All predictors)')
+draw_confusion_matrix(cm=cm_linear, cm_title = "SVM Linear (All predictors)")
+```
+
+Here we can observe that both model has relatively poor specificity compare to its accuracy. This means that model is trained biased to predict that given employee does not have Attrition. This is due to unbalanced label of data set where most of our data set were employees without Attrition. 
+
+Depending on the objective of the business goal this model maybe good enough, but our goal is to minimize the cost happening due to Attrition so we may need a model that has reasonable specificity. 
+
+## Under sampling
+
+In order to avoid biased training we will under sample the data set to have equal amount of employee with Attrition and without. 
+
+```{r undersample}
+set.seed(111)
+emp_undersample<- emp_attrition %>% group_by(Attrition) %>% slice_sample(n=200)
+
+emp_attrition_split.under <- initial_split(emp_undersample, prop = 0.80, strata = "Attrition")
+emp_attrition_train.under <- training(emp_attrition_split.under)
+emp_attrition_test.under  <- testing(emp_attrition_split.under)
+emp_undersample %>% count(Attrition)
+```
+
+Here we can observe that under sampled dataset has equal amount of 'Yes' and 'No'. With this new data set we will train SVM and observe its performance.
+
+```{r, echo=FALSE, out.width="50%", fig.show='hold'}
+set.seed(111)
+
+svm_radial.under <- train(
+  Attrition ~ .,
+  data = emp_attrition_train.under,
+  method = "svmRadial",
+  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
+)
+
+svm_linear.under <- train(
+  Attrition ~ .,
+  data = emp_attrition_train.under,
+  method = "svmLinear",
+  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
+)
+
+test_pred_radial.under <- predict(svm_radial.under, newdata = emp_attrition_test.under)
+test_pred_linear.under <- predict(svm_linear.under, newdata = emp_attrition_test.under)
+
+cm_radial.under <- confusionMatrix(table(test_pred_radial.under, emp_attrition_test.under$Attrition))
+cm_linear.under <- confusionMatrix(table(test_pred_linear.under, emp_attrition_test.under$Attrition))
+
+draw_confusion_matrix(cm=cm_radial.under, cm_title = 'SVM Radial (All predictors) under sampled')
+draw_confusion_matrix(cm=cm_linear.under, cm_title = "SVM Linear (All predictors) under sampled")
+```
+
+After under sampling the data to have balanced label the perforamnce of both model changed. The accuracy of both model decreased but specificity increased. This indicates that this model is more capable of predicting employee who may have Attrition.
+
+## Variable Selection
+
+In order to compare with other models with how selection of predictor/variable impacts the model performance we trained SVM with selected variables. 
+
+Chosen variables are shown below.
+
+- EnvironmentSatisfaction
+- NumCompaniesWorked
+- JobSatisfaction + 
+- BusinessTravel
+- DistanceFromHome
+- OverTime
+- YearsAtCompany
+- PercentSalaryHike
+- WorkLifeBalance
+- Age
+- YearsWithCurrManager
+- YearsSinceLastPromotion, 
+
+```{r, echo=FALSE, out.width="50%", fig.show='hold'}
+svm_radial.2 <- train(
+  Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
+    BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
+    PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
+    YearsSinceLastPromotion, 
+  data = emp_attrition_train.under, 
+  method = "svmRadial",
+  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
+)
+
+svm_linear.2 <- train(
+  Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
+    BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
+    PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
+    YearsSinceLastPromotion, 
+  data = emp_attrition_train.under, 
+  method = "svmLinear",
+  trControl = trainControl(method = "cv", number = 10), # 10 fold cross validation
+)
+
+test_pred_radial.2 <- predict(svm_radial.2, newdata = emp_attrition_test.under)
+test_pred_linear.2 <- predict(svm_linear.2, newdata = emp_attrition_test.under)
+
+cm_radial.2 <- confusionMatrix(table(test_pred_radial.2, emp_attrition_test.under$Attrition))
+cm_linear.2 <- confusionMatrix(table(test_pred_linear.2, emp_attrition_test.under$Attrition))
+
+draw_confusion_matrix(cm_radial.2, "SVM Radial (selected predictors) under sampled")
+draw_confusion_matrix(cm_linear.2, "SVM Linear (selected predictors) under sampled")
+```
+
+There doesn't seem to be a significant difference between these two model to the models with all predictors. They both have similar accuracy and specificity, so we can assume that SVM models does not get highly impacted by the variable selection as GLM models did. 
+
+# Neural Network
+
+```{r, warning=FALSE}
+set.seed(111)
+emp_net = train(
+  Attrition ~ .,
+  data=emp_attrition_train,
+  method = "nnet",
+  metric = "ROC",
+  tuneGrid = expand.grid(
+    size = seq(from = 5, to = 10, by = 1),
+    decay = 10^seq(-4, -1, 1)),
+  preProc = c("center", "scale"),
+  trControl = trainControl(
+    method = "cv",
+    number = 10,
+    classProbs = TRUE,
+    summaryFunction = twoClassSummary)
+)
+
+pred_net <- predict(emp_net, emp_attrition_test, type="raw")
+net_table <- table(pred=pred_net, true=emp_attrition_test$Attrition)
+pred_net
+plotnet(emp_net)
+plot(emp_net)
+cm_nn <- confusionMatrix(net_table)
+draw_confusion_matrix(cm_nn, "Neural Network (All predictors)")
+
+pred_raw <- predict(emp_net, emp_attrition_test, decision.values=TRUE, type = "raw")
+
+
+pred <- ROCR::prediction(pred_raw, emp_attrition_test$Attrition)
+perf <- ROCR::performance(pred, measure="tpr", x.measure="fpr")
+plot(perf, lwd=2, col="blue")
+abline(a=0, b=1)
+auc_ROCR <- performance(pred, measure="auc")
+auc_ROCR <- auc_ROCR@y.values[[1]]
+auc_ROCR
+```
+
+
+```{r}
+set.seed(111)
+emp_net = train(
+  Attrition ~ .,
+  data=emp_attrition_train,
+  method = "mlpML",
+  metric = "ROC",
+  tuneGrid = expand.grid(
+    layer1=13,
+    layer2=0,
+    layer3=0
+    ),
+  preProc = c("center", "scale"),
+  trControl = trainControl(
+    method = "cv",
+    number = 10,
+    classProbs = TRUE,
+    summaryFunction = twoClassSummary)
+)
+
+pred_net <- predict(emp_net, emp_attrition_test, type="raw")
+net_table <- table(pred=pred_net, true=emp_attrition_test$Attrition)
+pred_net
+plotnet(emp_net)
+plot(emp_net)
+cm_nn <- confusionMatrix(net_table)
+draw_confusion_matrix(cm_nn, "Neural Network (All predictors)")
+
+pred_raw <- predict(emp_net, emp_attrition_test, decision.values=TRUE, type = "raw")
+
+
+pred <- ROCR::prediction(pred_raw, emp_attrition_test$Attrition)
+perf <- ROCR::performance(pred, measure="tpr", x.measure="fpr")
+plot(perf, lwd=2, col="blue")
+abline(a=0, b=1)
+auc_ROCR <- performance(pred, measure="auc")
+auc_ROCR <- auc_ROCR@y.values[[1]]
+auc_ROCR
+
+```
+# Conclusion
+
+In conclusion of the performed models, starting with the Linear Model and the General Additive Models, the latter perfomed slightly better due to included smooth terms, if measured by the Adjusted R-squared values. Similar effects were displayed for the fading of influence of the categorical variables Attrition, EnvironmentSatisfaction and WorkLifeBalance on the dependent variable YearsAtCompany for both approaches, when fitted to the smaller test dataset. Taking into account that the Linear Model allows to simply interpret the influence of the predictor variables, the Final Linear Model should be preffered to gain insights on the Attrition dataset compared to the more complex GAM Model.
+
+Of the observed significant influences in Final Linear Model the following seem crucial in our perspective:
+
+- YearsWithCurrManager: The dependent variable, YearsAtCompany, increases by 0.75% if the independent variable increases by 1%. It is not surprising that people seem to prefer consictency in their direct management but this has to be kept in mind in regard of promotions but also possible restructuring.
+
+- YearsSinceLastPromotion: The dependent variable, YearsAtCompany, increases by 5.50% if the independent variable increases by 1 year. People who might be waiting/expecting a promotion are likely to work longer for a company. Therefore, a promotion system should be setup on trustworthy policy with transparent rules and derived individual goals, to allow people to work towards a promotion. 
+
+- WorkLifeBalance: The dependent variable, YearsAtCompany, increases by 6.11% respectively by 8.98% if the balance is “good” or even “best,” compared to the reference level “better.” The better the WorkLifeBalance of employees, the longer they seem to keep working for the company. This has to be kept in mind when for example ordering people back to the headquarters in post-pandemic times.
+
+\newpage
+
+# Session Information {.unnumbered}
+
+```{r session-info}
+sessionInfo()
+```
+
+\newpage
+
+# References
