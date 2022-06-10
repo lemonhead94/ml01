@@ -1470,7 +1470,7 @@ draw_confusion_matrix(cm_linear.2, "SVM Linear (selected predictors) under sampl
 
 There doesn't seem to be a significant difference between these two model to the models with all predictors. They both have similar accuracy and specificity, so we can assume that SVM models does not get highly impacted by the variable selection as GLM models did. 
 
-```{r}
+```{r, echo=FALSE, out.width="100%", fig.show='hold'}
 set.seed(111)
 par(pty = "s")
 roc(emp_attrition_test.under$Attrition, as.numeric(test_pred_radial.2)-1, legacy.axes=TRUE, plot=TRUE, percent=TRUE, print.auc=TRUE, col="blue", xlab="False Positive Percentage", ylab="True Positive Percentage")
@@ -1602,7 +1602,7 @@ By observing the ROC curve we can estimate the performance of the model better t
 # Conclusion
 
 
-```{r}
+```{r, echo=FALSE, out.width="100%", fig.show='hold'}
 par(pty = "s")
 roc(emp_attrition_test$Attrition, cv_glm.probability, plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", ylab="True Positive Percentage", col="blue", print.auc=TRUE)
 plot.roc(emp_attrition_test$Attrition, cv_glm.probability.2, percent=TRUE, col="#e34a33", add=TRUE, print.auc=TRUE, print.auc.y=43)
@@ -1634,7 +1634,7 @@ Of the observed significant influences in Final Linear Model the following seem 
 # Session Information {.unnumbered}
 
 ```{r session-info}
-#sessionInfo()
+sessionInfo()
 ```
 
 \newpage
