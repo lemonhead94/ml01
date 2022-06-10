@@ -1372,29 +1372,78 @@ Above figure shows the neural network model with input layer, hidden layer and t
 plot(emp_net)
 ```
 
-Above figure is showing the accuracy of each parameters for tuning.
+```{r, warning=FALSE, echo=FALSE, include=FALSE}
+set.seed(111)
+
+emp_net.2 = train(
+  Attrition ~ EnvironmentSatisfaction + NumCompaniesWorked + JobSatisfaction + 
+    BusinessTravel + DistanceFromHome + OverTime + YearsAtCompany + 
+    PercentSalaryHike + WorkLifeBalance + Age + YearsWithCurrManager + 
+    YearsSinceLastPromotion,
+  data=emp_attrition_train,
+  method = "nnet",
+  metric = "ROC",
+    tuneGrid = expand.grid(
+    size = seq(from = 5, to = 10, by = 1),
+    decay = 10^seq(-4, -1, 1)),
+  preProc = c("center", "scale"),
+  trControl = trainControl(
+    method = "cv",
+    number = 10,
+    classProbs = TRUE,
+    summaryFunction = twoClassSummary),
+  allowParallel = TRUE
+)
+
+```
 
 ```{r, echo=FALSE}
+pred_net.2 <- predict(emp_net.2, emp_attrition_test, type="raw")
+net_table.2 <- table(pred=pred_net.2, true=emp_attrition_test$Attrition)
+
+plotnet(emp_net.2)
+```
+
+We train another model with only selected predictors. Above figure shows the neural network model with input layer, hidden layer and the output layer. 
+
+```{r, echo=FALSE}
+plot(emp_net.2)
+```
+
+Same as previously parameter tuning shows the optimized value. 
+
+```{r, echo=FALSE, fig.show="hold", out.width = "50%"}
 cm_nn <- confusionMatrix(net_table)
+cm_nn.2 <- confusionMatrix(net_table.2)
 draw_confusion_matrix(cm_nn, "Neural Network (All predictors)")
+draw_confusion_matrix(cm_nn.2, "Neural Network (Selected predictors)")
 ```
 
-Above is the confusion matrix of the neural network model. As we can see still the specificity of the model is quite low. 
+Above is the confusion matrix of the neural network model. As we can see still the specificity of the model is quite low. Since Neural Networks final output is a probability, we can adjust our cutoff value to have higher specificity. 
 
-```{r, echo=FALSE}
-pred_raw <- predict(emp_net, emp_attrition_test, decision.values=TRUE, type = "prob")[, 2]
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hold'}
+set.seed(111)
 
-pred <- ROCR::prediction(pred_raw, emp_attrition_test$Attrition)
-perf <- ROCR::performance(pred, measure="tpr", x.measure="fpr")
+cv_nn.probability <- predict(emp_net, emp_attrition_test, type = "prob")$Yes
+nnroc.info <- roc(emp_attrition_test$Attrition, cv_nn.probability, legacy.axes=TRUE)
+nnroc.df <- data.frame(tpp=nnroc.info$sensitivities*100, 
+                     fpp=(1-nnroc.info$specificities)*100,
+                     thresholds=nnroc.info$thresholds)
 
-plot(perf, lwd=2, col="blue")
-title("ROC Curve NN with all predictors")
-abline(a=0, b=1)
-auc_ROCR <- ROCR::performance(pred, measure="auc")
-auc_ROCR <- auc_ROCR@y.values[[1]]
-text(x = 0.9, y = 0.1, paste("auc: ",auc_ROCR), 
-     cex = 1.6, col = "black")
+cv_nn.probability.2 <- predict(emp_net.2, emp_attrition_test, type = "prob")$Yes
+nnroc.info.2 <- roc(emp_attrition_test$Attrition, cv_nn.probability.2, legacy.axes=TRUE)
+nnroc.df.2 <- data.frame(tpp=nnroc.info.2$sensitivities*100, 
+                     fpp=(1-nnroc.info.2$specificities)*100,
+                     thresholds=nnroc.info.2$thresholds)
+
+# plotting ROC
+par(pty = "s")
+roc(emp_attrition_test$Attrition, cv_nn.probability, plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", ylab="True Positive Percentage", col="blue", print.auc=TRUE)
+plot.roc(emp_attrition_test$Attrition, cv_nn.probability.2, percent=TRUE, col="#4daf4a", add=TRUE, print.auc=TRUE, print.auc.y=43)
+legend("bottomright", legend=c("Model w/ all predictors", "Model w/ selected predictors"), col = c("blue", "#4daf4a"), lwd=2, cex = 0.75)
 ```
+
+By observing the ROC curve we can estimate the performance of the model better than just observing the accuracy of the model as our business goal is not just to have good accuracy but also predict employees with Attrition. Comparing AUC value among model will tell us which model performs better. 
 
 # Conclusion
 
