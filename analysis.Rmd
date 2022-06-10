@@ -1601,6 +1601,24 @@ By observing the ROC curve we can estimate the performance of the model better t
 
 # Conclusion
 
+
+```{r}
+par(pty = "s")
+roc(emp_attrition_test$Attrition, cv_glm.probability, plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", ylab="True Positive Percentage", col="blue", print.auc=TRUE)
+plot.roc(emp_attrition_test$Attrition, cv_glm.probability.2, percent=TRUE, col="#e34a33", add=TRUE, print.auc=TRUE, print.auc.y=43)
+plot.roc(emp_attrition_test.under$Attrition, as.numeric(test_pred_linear.2)-1, percent=TRUE, col="#4daf4a", add=TRUE, print.auc=TRUE, print.auc.y=36.5)
+plot.roc(emp_attrition_test$Attrition, cv_nn.probability, percent=TRUE, col="#1c9099", add=TRUE, print.auc=TRUE, print.auc.y=30)
+legend("bottomright", legend=c(
+  "Logistic Regression with All Predictors",
+  "Logistic Regression with selected Predictors",
+  "Linear SVM under sampled with selected Predictors",
+  "Neural Network with all Predictors"
+  ), col = c("blue", "#4daf4a", "#e34a33", "#1c9099"), lwd=2, cex = 0.75)
+title("SVM Model with selected Predictors")
+```
+
+We compared three different category of models (Logistic Regression, SVM, and Neural Network). As our business goal was to have a robust model that can predict both employees with Attrition and without Attrition well, we used AUC value to compare the performance of the model. The result shows that Logistic Regression model with All Predictors had the highest AUC values. 
+
 In conclusion of the performed models, starting with the Linear Model and the General Additive Models, the latter perfomed slightly better due to included smooth terms, if measured by the Adjusted R-squared values. Similar effects were displayed for the fading of influence of the categorical variables Attrition, EnvironmentSatisfaction and WorkLifeBalance on the dependent variable YearsAtCompany for both approaches, when fitted to the smaller test dataset. Taking into account that the Linear Model allows to simply interpret the influence of the predictor variables, the Final Linear Model should be preffered to gain insights on the Attrition dataset compared to the more complex GAM Model.
 
 Of the observed significant influences in Final Linear Model the following seem crucial in our perspective:
