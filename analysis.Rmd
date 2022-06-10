@@ -493,8 +493,8 @@ emp_attrition_train_lm$WorkLifeBalance <- relevel(emp_attrition_train_lm$WorkLif
 
 ```
 
-The first Linear Model is performed including all variables without additional log transformation. As the model formula is included in the output, the code is omitted here.
-```{r LM without log, echo=FALSE}
+The first Linear Model is performed including all variables without additional log transformation. As the output is quite long it is omitted here.
+```{r LM without log, include=TRUE, results=FALSE}
 # Linear model without log transformation
 lm.YearsAtCompany.0 <- lm(formula=YearsAtCompany ~ ., data = emp_attrition_train_lm)
 lm.summary.0 <- summary(lm.YearsAtCompany.0)
@@ -514,11 +514,11 @@ according to a significance level of 0.05:
 
 ## Linear Model with Log Transformation
 
-In the next step the independent variables which displayed right skeewedness are log transformed for
+In the next step the independent variables (Age, YearsAtCompany, YearsWithCurrentManager) which displayed right skeewedness are log transformed for
 a further Linear Model. As the log transformation did create infinity values from log(0) those values
 are changed back to 0. No NaN values are created because there are no negative values in the
 transformed variables. Created NaN values due to log transformation would most likely need to be deleted from a dataset if they can not be replaced by a reasonable value. Furthermore, the reference levels have to be set again for the newly created _log dataset.
-```{r Log Linear Regression setup, results=FALSE}
+```{r Log Linear Regression setup, include=FALSE}
 # Log transformation of variables that seem to be right skeewed 
 emp_attrition_log <- emp_attrition_train_lm
 emp_attrition_log["Age"] <- log(emp_attrition_log["Age"]) 
