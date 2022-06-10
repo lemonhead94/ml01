@@ -70,8 +70,6 @@ The following topics are layed out through out this paper:
 5.  Neural Networks
 6.  Optimisation
 
-\newpage
-
 # Data preparation
 
 ```{r import-data, echo = FALSE, results = FALSE}
@@ -1409,7 +1407,7 @@ draw_confusion_matrix(cm=cm_linear.under, cm_title = "SVM Linear (All predictors
 
 After under sampling the data to have balanced label the perforamnce of both model changed. The accuracy of both model decreased but specificity increased. This indicates that this model is more capable of predicting employee who may have Attrition.
 
-```{r}
+```{r, echo=FALSE, out.width="100%", fig.show='hold', message=FALSE, warning=FALSE, results='hide'}
 set.seed(111)
 
 par(pty = "s")
@@ -1525,18 +1523,15 @@ emp_net = train(
 
 ```
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.show="hold", out.width = "50%"}
 pred_net <- predict(emp_net, emp_attrition_test, type="raw")
 net_table <- table(pred=pred_net, true=emp_attrition_test$Attrition)
 
 plotnet(emp_net)
+plot(emp_net)
 ```
 
 Above figure shows the neural network model with input layer, hidden layer and the output layer. 
-
-```{r, echo=FALSE}
-plot(emp_net)
-```
 
 ```{r, warning=FALSE, echo=FALSE, include=FALSE}
 set.seed(111)
@@ -1563,18 +1558,15 @@ emp_net.2 = train(
 
 ```
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.show="hold", out.width = "50%"}
 pred_net.2 <- predict(emp_net.2, emp_attrition_test, type="raw")
 net_table.2 <- table(pred=pred_net.2, true=emp_attrition_test$Attrition)
 
 plotnet(emp_net.2)
+plot(emp_net.2)
 ```
 
 We train another model with only selected predictors. Above figure shows the neural network model with input layer, hidden layer and the output layer. 
-
-```{r, echo=FALSE}
-plot(emp_net.2)
-```
 
 Same as previously parameter tuning shows the optimized value. 
 
@@ -1614,7 +1606,7 @@ By observing the ROC curve we can estimate the performance of the model better t
 # Conclusion
 
 
-```{r, echo=FALSE, out.width="100%", fig.show='hold'}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='hide', out.width="100%", fig.show='hold'}
 par(pty = "s")
 roc(emp_attrition_test$Attrition, cv_glm.probability, plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", ylab="True Positive Percentage", col="blue", print.auc=TRUE)
 plot.roc(emp_attrition_test$Attrition, cv_glm.probability.2, percent=TRUE, col="#e34a33", add=TRUE, print.auc=TRUE, print.auc.y=43)
