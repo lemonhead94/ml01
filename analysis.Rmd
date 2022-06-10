@@ -456,8 +456,20 @@ Before performing a Linear Regression Model, the reference level for the factor 
 are set to the level with the greatest n-count. Due to the length of the output, only the factor levels of the first two factor variables are displayed here.
 ```{r Linear Regression, echo=FALSE}
 # Setup Data sets for LM / GAM part 
-emp_attrition_train_lm <- emp_attrition_train
-emp_attrition_test_lm <- emp_attrition_test
+emp_attrition_train_lm <- emp_attrition_train[,c("Attrition", "Age", "BusinessTravel",
+                                        "DistanceFromHome", "EnvironmentSatisfaction",
+                                        "JobSatisfaction",
+                                        "NumCompaniesWorked", "OverTime",
+                                        "WorkLifeBalance", "YearsAtCompany",
+                                        "YearsSinceLastPromotion",
+                                        "YearsWithCurrManager")]
+emp_attrition_test_lm <- emp_attrition_test[,c("Attrition", "Age", "BusinessTravel",
+                                        "DistanceFromHome", "EnvironmentSatisfaction",
+                                        "JobSatisfaction",
+                                        "NumCompaniesWorked", "OverTime",
+                                        "WorkLifeBalance", "YearsAtCompany",
+                                        "YearsSinceLastPromotion",
+                                        "YearsWithCurrManager")]
 # Setting factor levels # Output n count of factor levels
 emp_attrition_factors_only <- emp_attrition_train_lm %>% select_if(is.factor)
 names_factor_variables <- colnames(emp_attrition_factors_only)
