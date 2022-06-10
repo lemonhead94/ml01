@@ -680,7 +680,7 @@ by 8.98% if the balance is "good" or even "best", compared to the reference leve
 
 In the following plot the variables are sorted by importance, variables that influence the dependent variable YearsAtCompany positively are colored cyan, variables that influence it negatively are colored red.
 
-```{r, echo=FALSE, fig.show="hold", out.width="75%",out.height="50%"}
+```{r, echo=FALSE, fig.show="hold", out.width="100%",out.height="50%"}
 # Variable importance plot
 vip(lm.YearsAtCompany.2, mapping = aes_string(fill = "Sign"))
 ```
@@ -1421,7 +1421,7 @@ legend("bottomright", legend=c(
   "Radial SVM under sampled",
   "Linear SVM under sampled"
   ), col = c("blue", "#4daf4a", "#e34a33", "#1c9099"), lwd=2, cex = 0.75)
-title("SVM Model with All Predictors")
+title("SVM Model with All Predictors", outer=TRUE)
 ```
 
 By observing the ROC curve and AUC value of each models we can see Linear SVM under sampled model shows the highest AUC value. 
@@ -1432,18 +1432,7 @@ In order to compare with other models with how selection of predictor/variable i
 
 Chosen variables are shown below.
 
-- EnvironmentSatisfaction
-- NumCompaniesWorked
-- JobSatisfaction + 
-- BusinessTravel
-- DistanceFromHome
-- OverTime
-- YearsAtCompany
-- PercentSalaryHike
-- WorkLifeBalance
-- Age
-- YearsWithCurrManager
-- YearsSinceLastPromotion, 
+(EnvironmentSatisfaction, NumCompaniesWorked, JobSatisfaction, BusinessTravel, DistanceFromHome, OverTime, YearsAtCompany, PercentSalaryHike, WorkLifeBalance, Age, YearsWithCurrManager, YearsSinceLastPromotion)
 
 ```{r, echo=FALSE, out.width="50%", fig.show='hold'}
 set.seed(111)
@@ -1480,7 +1469,7 @@ draw_confusion_matrix(cm_linear.2, "SVM Linear (selected predictors) under sampl
 
 There doesn't seem to be a significant difference between these two model to the models with all predictors. They both have similar accuracy and specificity, so we can assume that SVM models does not get highly impacted by the variable selection as GLM models did. 
 
-```{r, echo=FALSE, out.width="100%", fig.show='hold'}
+```{r, echo=FALSE, out.width="100%", fig.show='hold', warning=FALSE, message=FALSE}
 set.seed(111)
 par(pty = "s")
 roc(emp_attrition_test.under$Attrition, as.numeric(test_pred_radial.2)-1, legacy.axes=TRUE, plot=TRUE, percent=TRUE, print.auc=TRUE, col="blue", xlab="False Positive Percentage", ylab="True Positive Percentage")
@@ -1489,7 +1478,7 @@ legend("bottomright", legend=c(
   "Radial SVM under sampled",
   "Linear SVM under sampled"
   ), col = c("blue", "#4daf4a", "#e34a33", "#1c9099"), lwd=2, cex = 0.75)
-title("SVM Model with selected Predictors")
+title("SVM Model with selected Predictors", outer=TRUE)
 ```
 
 By observing the ROC curve and AUC value of each models with selected variables we observe the AUC value is slightly higher but this may not be significant due to small size of data set.
@@ -1618,7 +1607,7 @@ legend("bottomright", legend=c(
   "Linear SVM under sampled with selected Predictors",
   "Neural Network with all Predictors"
   ), col = c("blue", "#4daf4a", "#e34a33", "#1c9099"), lwd=2, cex = 0.75)
-title("SVM Model with selected Predictors")
+title("SVM Model with selected Predictors", outer=TRUE)
 ```
 
 We compared three different category of models (Logistic Regression, SVM, and Neural Network). As our business goal was to have a robust model that can predict both employees with Attrition and without Attrition well, we used AUC value to compare the performance of the model. The result shows that Logistic Regression model with All Predictors had the highest AUC values. 
