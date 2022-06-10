@@ -45,3 +45,8 @@ vignettes/*.pdf
 analysis.pdf
 analysis.html
 *.log
+
+all_files
+analysis_files
+all.Rmd
+analysis-Taejun.Rmd
