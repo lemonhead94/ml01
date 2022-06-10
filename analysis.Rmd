@@ -831,6 +831,28 @@ Overall, the general additive model performs slighty better on the training data
 
 # Generalised Linear Models
 
+## Poisson Regression
+
+```{r poisson-regression}
+glm.companies.worked.1 <- glm(NumCompaniesWorked ~ Age, family = "quasipoisson", data = emp_attrition)
+glm.companies.worked.2 <- glm(NumCompaniesWorked ~ Age + Attrition + OverTime + TotalWorkingYears + YearsAtCompany, family = "quasipoisson", data = emp_attrition)
+# summary(glm.companies.worked.2)
+print(exp(coef(glm.companies.worked.2)["Age"]), digits = 5)
+print(exp(coef(glm.companies.worked.2)["AttritionYes"]), digits = 5)
+print(exp(coef(glm.companies.worked.2)["OverTimeYes"]), digits = 5)
+print(exp(coef(glm.companies.worked.2)["TotalWorkingYears"]), digits = 5)
+print(exp(coef(glm.companies.worked.2)["YearsAtCompany"]), digits = 5)
+```
+
+Fitting a poisson distribution on this data set is done purely for the academic purposes as since number of companies worked for won't fit poisson distribution therefore the quasipoisson is used. Nevertheless the following interpretation can be made. 
+
+For a given employee, 
+- increasing the age by one year, would result in about 2% more number of companies worked for
+- Employee who are leaving the IBM company, on average, have 28% number of companies worked for than people who are not leaving the company
+- Employee with overtime, on average, have 88% more number of comapnies worked for than peiple who are not doing overtime
+- for each year a employee works about 3% more number of companies worked for increases
+- for each year a employee works for IBM the number of companies worked for decreases by 5%
+
 ## Simple Logistic Regression
 
 ```{r}
