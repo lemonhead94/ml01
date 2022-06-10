@@ -63,11 +63,11 @@ Therefore, IBM data scientists created a fictitious data set as a challenge for 
 
 The following topics are layed out through out this paper:
 
-1.  Linear Models, Lead: Levin Reichmuth
-2.  Extending the Linear Model: Non-linearity (GAM), Lead: Levin Reichmuth
-3.  Extending the Linear Model: Generalised Linear Models (GLM), Lead: Jorit Studer
-5.  Neural Networks, Lead: Taejun Moon
-6.  SVM, Lead: Taejun Moon
+1. Exploration: Lead: Jorit Studer and Levin Reichmuth
+2.  Linear Models and Non-linearity (GAM), Lead: Levin Reichmuth
+3.  Generalised Linear Models (GLM), Lead: Jorit Studer
+4.  SVM and Neural Networks, Lead: Taejun Moon
+5. Optimization, Lead: Jorit Studer and Taejun Moon
 
 # Data preparation
 
@@ -854,6 +854,7 @@ print(exp(coef(glm.companies.worked.2)["YearsAtCompany"]), digits = 5)
 Fitting a poisson distribution on this data set is done purely for the academic purposes as since number of companies worked for won't fit poisson distribution therefore the quasipoisson is used. Nevertheless the following interpretation can be made. 
 
 For a given employee, 
+
 - increasing the age by one year, would result in about 2% more number of companies worked for
 - Employee who are leaving the IBM company, on average, have 28% number of companies worked for than people who are not leaving the company
 - Employee with overtime, on average, have 88% more number of comapnies worked for than peiple who are not doing overtime
@@ -1488,7 +1489,7 @@ draw_confusion_matrix(cm_linear.2, "SVM Linear (selected predictors) under sampl
 
 There doesn't seem to be a significant difference between these two model to the models with all predictors. They both have similar accuracy and specificity, so we can assume that SVM models does not get highly impacted by the variable selection as GLM models did. 
 
-```{r, echo=FALSE, out.width="100%", fig.show='hold', warning=FALSE, message=FALSE}
+```{r, echo=FALSE, out.width="100%", fig.show='hold', warning=FALSE, message=FALSE, results='hide'}
 set.seed(111)
 par(pty = "s")
 roc(emp_attrition_test.under$Attrition, as.numeric(test_pred_radial.2)-1, legacy.axes=TRUE, plot=TRUE, percent=TRUE, print.auc=TRUE, col="blue", xlab="False Positive Percentage", ylab="True Positive Percentage")
@@ -1610,6 +1611,8 @@ legend("bottomright", legend=c("Model w/ all predictors", "Model w/ selected pre
 ```
 
 By observing the ROC curve we can estimate the performance of the model better than just observing the accuracy of the model as our business goal is not just to have good accuracy but also predict employees with Attrition. Comparing AUC value among model will tell us which model performs better. 
+
+\newpage
 
 # Conclusion
 

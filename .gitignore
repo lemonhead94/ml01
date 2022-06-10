@@ -42,7 +42,6 @@ vignettes/*.pdf
 .DS_Store
 
 # Report
-analysis.pdf
 analysis.html
 *.log
 

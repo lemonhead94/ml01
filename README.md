@@ -1,4 +1,5 @@
 # Employee Attrition Model
+
 > IBM HR Analytics Employee Attrition & Performance
 
 **Authors:** Levin Reichmuth, Jorit Studer and Taejun Moon
@@ -26,7 +27,7 @@
 The following packages are required to knitr this report using bookdown.
 
 ```r
-packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra")
+packages <- c("bookdown", "dplyr", "ggplot2", "papeR", "kableExtra", "mgcv", "caret", "vip", "rsample", "tidyverse", "yardstick", "arm", "pROC", "nnet", "NeuralNetTools", "rsample", "multcomp", "vip", "magicfor")
 package.check <- lapply(packages, FUN = function(x) {
     if (!require(x, character.only = TRUE)) {
         install.packages(x, dependencies = TRUE)
@@ -38,4 +39,4 @@ package.check <- lapply(packages, FUN = function(x) {
 ## Rendering
 
 In R-Studio click on the arrow on Knit then select "Knit to pdf_document2" or "Knit to pdf_html2".
-*The following project was compiled using RStudio 2021.09.2 Build 382 and R version 4.1.2 (2021-11-01).*
+*The following project was compiled using RStudio 2021.09.2 Build 382 and R version 4.1.2 (2022-06-10).*
